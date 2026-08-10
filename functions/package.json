@@ -1,13 +1,11 @@
 {
   "name": "functions",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "private": true,
+  "description": "Hasura Action, Event Trigger, and Cron handlers for the workflow engine",
+  "license": "ISC",
+  "dependencies": {
+    "@nhost/nhost-js": "^4.8.0",
+    "zod": "^4.4.3"
+  }
 }
