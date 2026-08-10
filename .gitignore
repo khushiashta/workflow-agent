@@ -16,3 +16,7 @@ dist/
 .DS_Store
 *.log
 scripts/demo-ids.md
+
+.claude/
+CLAUDE.md
+PLAN.md

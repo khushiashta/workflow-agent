@@ -7,8 +7,8 @@ to the caller's organization *and* their role in it.
 
 Built on nhost (PostgreSQL + Hasura + Auth + Functions) with a Next.js frontend.
 
-> **Status:** H1 complete — scaffolding, config, and deploy pipeline. Schema, permissions, engine,
-> and UI land in H2–H9. See [PLAN.md](PLAN.md).
+> **Status:** schema, relationships, and seed are in place. Permissions, the execution engine,
+> and the UI are next.
 
 ## Stack
 
@@ -139,6 +139,5 @@ actually holds it. Nothing to keep in sync when membership changes.
 
 ## Documentation
 
-- [PLAN.md](PLAN.md) — the hour-by-hour build plan and its checkpoints
-- `.claude/skills/ai-agent-workflow-builder/` — schema, permission, handler, and verification
-  references this build follows
+- `docs/write-up.md` — schema reasoning, how the two permission layers differ, and how the
+  approval gate pauses and resumes *(added in H10)*
