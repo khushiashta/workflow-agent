@@ -13,3 +13,183 @@ array_relationships:
         table:
           name: step_runs
           schema: public
+insert_permissions:
+  - role: editor
+    permission:
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - workflow_id
+        - step_order
+        - step_type
+        - name
+        - config
+  - role: owner
+    permission:
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - workflow_id
+        - step_order
+        - step_type
+        - name
+        - config
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - step_order
+        - step_type
+        - name
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+      limit: 200
+  - role: owner
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - step_order
+        - step_type
+        - name
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+      limit: 200
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - step_order
+        - step_type
+        - name
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: viewer
+      limit: 200
+update_permissions:
+  - role: editor
+    permission:
+      columns:
+        - step_order
+        - step_type
+        - name
+        - config
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - step_order
+        - step_type
+        - name
+        - config
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+delete_permissions:
+  - role: editor
+    permission:
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner

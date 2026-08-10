@@ -14,6 +14,15 @@ const password = requireEnv('SEED_USER_PASSWORD');
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
 const ORG_B_ID = '22222222-2222-2222-2222-222222222222';
 const WORKFLOW_ID = '33333333-3333-3333-3333-333333333333';
+const RUN_ID = '44444444-4444-4444-4444-444444444444';
+
+const STEP_IDS = [
+  'aaaaaaaa-0000-0000-0000-000000000001',
+  'aaaaaaaa-0000-0000-0000-000000000002',
+  'aaaaaaaa-0000-0000-0000-000000000003',
+  'aaaaaaaa-0000-0000-0000-000000000004',
+  'aaaaaaaa-0000-0000-0000-000000000005',
+] as const;
 
 type OrgRole = 'owner' | 'editor' | 'viewer';
 
@@ -191,7 +200,7 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
       },
       steps: [
         {
-          id: 'aaaaaaaa-0000-0000-0000-000000000001',
+          id: STEP_IDS[0],
           workflow_id: WORKFLOW_ID,
           step_order: 1,
           step_type: 'llm_call',
@@ -205,7 +214,7 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
           },
         },
         {
-          id: 'aaaaaaaa-0000-0000-0000-000000000002',
+          id: STEP_IDS[1],
           workflow_id: WORKFLOW_ID,
           step_order: 2,
           step_type: 'conditional_branch',
@@ -220,7 +229,7 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
           },
         },
         {
-          id: 'aaaaaaaa-0000-0000-0000-000000000003',
+          id: STEP_IDS[2],
           workflow_id: WORKFLOW_ID,
           step_order: 3,
           step_type: 'approval_gate',
@@ -232,7 +241,7 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
           },
         },
         {
-          id: 'aaaaaaaa-0000-0000-0000-000000000004',
+          id: STEP_IDS[3],
           workflow_id: WORKFLOW_ID,
           step_order: 4,
           step_type: 'http_request',
@@ -241,7 +250,7 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
           config: { method: 'GET', url: 'https://api.github.com/zen', timeout_ms: 10000 },
         },
         {
-          id: 'aaaaaaaa-0000-0000-0000-000000000005',
+          id: STEP_IDS[4],
           workflow_id: WORKFLOW_ID,
           step_order: 5,
           step_type: 'db_write',
@@ -261,6 +270,88 @@ async function upsertFixtureWorkflow(ownerId: string): Promise<void> {
   );
 }
 
+/**
+ * A finished run for the fixture workflow. Without it the isolation probes for
+ * workflow_runs, step_runs and step_outputs pass trivially — every role sees nothing
+ * because there is nothing — which is indistinguishable from a rule that blocks
+ * everyone. These are the tables the live run view depends on, so they need a positive
+ * control. Takes the URGENT branch, so no step is skipped.
+ */
+async function upsertFixtureRun(ownerId: string): Promise<void> {
+  const stepRuns = [
+    { order: 1, status: 'succeeded', output: { text: 'URGENT', model: 'seed-fixture' } },
+    { order: 2, status: 'succeeded', output: { matched: true, evaluated_left: 'URGENT' } },
+    { order: 3, status: 'succeeded', output: null, approved: true },
+    { order: 4, status: 'succeeded', output: { status: 200, body: 'seed fixture' } },
+    { order: 5, status: 'succeeded', output: { label: 'triage_verdict' } },
+  ];
+
+  await graphql(
+    `
+      mutation SeedRun(
+        $run: workflow_runs_insert_input!
+        $stepRuns: [step_runs_insert_input!]!
+        $output: step_outputs_insert_input!
+      ) {
+        insert_workflow_runs_one(
+          object: $run
+          on_conflict: { constraint: workflow_runs_pkey, update_columns: [status, context] }
+        ) {
+          id
+        }
+        insert_step_runs(
+          objects: $stepRuns
+          on_conflict: {
+            constraint: step_runs_pkey
+            update_columns: [status, output, approved_by, approved_at]
+          }
+        ) {
+          affected_rows
+        }
+        insert_step_outputs_one(
+          object: $output
+          on_conflict: { constraint: step_outputs_pkey, update_columns: [payload] }
+        ) {
+          id
+        }
+      }
+    `,
+    {
+      run: {
+        id: RUN_ID,
+        workflow_id: WORKFLOW_ID,
+        org_id: ORG_A_ID,
+        status: 'succeeded',
+        trigger_type: 'manual',
+        triggered_by: ownerId,
+        context: { trigger: { type: 'manual', payload: { text: 'Seed fixture run' } } },
+        started_at: '2026-08-01T09:00:00Z',
+        finished_at: '2026-08-01T09:00:12Z',
+      },
+      stepRuns: stepRuns.map((step, index) => ({
+        id: `cccccccc-0000-0000-0000-00000000000${index + 1}`,
+        workflow_run_id: RUN_ID,
+        workflow_step_id: STEP_IDS[index],
+        step_order: step.order,
+        status: step.status,
+        output: step.output,
+        attempt_count: 1,
+        approved_by: step.approved ? ownerId : null,
+        approved_at: step.approved ? '2026-08-01T09:00:08Z' : null,
+        started_at: '2026-08-01T09:00:00Z',
+        finished_at: '2026-08-01T09:00:12Z',
+      })),
+      output: {
+        id: 'dddddddd-0000-0000-0000-000000000001',
+        org_id: ORG_A_ID,
+        step_run_id: 'cccccccc-0000-0000-0000-000000000005',
+        label: 'triage_verdict',
+        payload: { verdict: 'URGENT' },
+      },
+    },
+  );
+}
+
 async function main(): Promise<void> {
   const userIds = new Map<string, string>();
   for (const member of MEMBERS) {
@@ -273,11 +364,13 @@ async function main(): Promise<void> {
   const ownerId = userIds.get('owner-a@example.com');
   if (!ownerId) throw new Error('Org A owner was not created');
   await upsertFixtureWorkflow(ownerId);
+  await upsertFixtureRun(ownerId);
 
   console.log('\nSeeded two organizations.\n');
   console.log(`  Org A            ${ORG_A_ID}`);
   console.log(`  Org B            ${ORG_B_ID}`);
-  console.log(`  Fixture workflow ${WORKFLOW_ID} (Org A)\n`);
+  console.log(`  Fixture workflow ${WORKFLOW_ID} (Org A)`);
+  console.log(`  Fixture run      ${RUN_ID} (Org A)\n`);
   for (const member of MEMBERS) {
     const org = member.orgId === ORG_A_ID ? 'Org A' : 'Org B';
     console.log(`  ${member.email.padEnd(22)} ${org} ${member.role.padEnd(7)} ${userIds.get(member.email)}`);

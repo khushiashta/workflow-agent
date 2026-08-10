@@ -9,7 +9,8 @@
     "seed": "node --env-file-if-exists=.env scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "nhost:up": "nhost up",
-    "nhost:down": "nhost down"
+    "nhost:down": "nhost down",
+    "verify:isolation": "node --env-file-if-exists=.env scripts/verify-isolation.ts"
   },
   "dependencies": {
     "@nhost/nhost-js": "^4.8.0",

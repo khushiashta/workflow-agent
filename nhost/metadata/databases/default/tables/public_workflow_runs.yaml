@@ -25,3 +25,82 @@ array_relationships:
         table:
           name: step_runs
           schema: public
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - org_id
+        - status
+        - trigger_type
+        - triggered_by
+        - context
+        - error
+        - resume_from_step_order
+        - started_at
+        - finished_at
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+      limit: 100
+      allow_aggregations: true
+  - role: owner
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - org_id
+        - status
+        - trigger_type
+        - triggered_by
+        - context
+        - error
+        - resume_from_step_order
+        - started_at
+        - finished_at
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+      limit: 100
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - org_id
+        - status
+        - trigger_type
+        - triggered_by
+        - context
+        - error
+        - resume_from_step_order
+        - started_at
+        - finished_at
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: viewer
+      limit: 100
+      allow_aggregations: true

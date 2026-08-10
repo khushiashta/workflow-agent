@@ -106,6 +106,13 @@ array_relationships:
         table:
           name: oauth2_refresh_tokens
           schema: auth
+  - name: org_memberships
+    using:
+      foreign_key_constraint_on:
+        column: user_id
+        table:
+          name: org_members
+          schema: public
   - name: refreshTokens
     using:
       foreign_key_constraint_on:
@@ -134,3 +141,55 @@ array_relationships:
         table:
           name: user_providers
           schema: auth
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - display_name
+        - email
+        - avatar_url
+        - created_at
+      filter:
+        org_memberships:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - id
+        - display_name
+        - email
+        - avatar_url
+        - created_at
+      filter:
+        org_memberships:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - display_name
+        - email
+        - avatar_url
+        - created_at
+      filter:
+        org_memberships:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: viewer

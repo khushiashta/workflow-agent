@@ -29,3 +29,158 @@ array_relationships:
         table:
           name: workflow_triggers
           schema: public
+insert_permissions:
+  - role: editor
+    permission:
+      check:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - org_id
+        - name
+        - description
+        - is_active
+  - role: owner
+    permission:
+      check:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - org_id
+        - name
+        - description
+        - is_active
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - org_id
+        - name
+        - description
+        - is_active
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+      limit: 100
+      allow_aggregations: true
+  - role: owner
+    permission:
+      columns:
+        - id
+        - org_id
+        - name
+        - description
+        - is_active
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+      limit: 100
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - org_id
+        - name
+        - description
+        - is_active
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: viewer
+      limit: 100
+      allow_aggregations: true
+update_permissions:
+  - role: editor
+    permission:
+      columns:
+        - name
+        - description
+        - is_active
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+      check:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - name
+        - description
+        - is_active
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+      check:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+delete_permissions:
+  - role: owner
+    permission:
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner

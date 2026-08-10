@@ -8,3 +8,50 @@ object_relationships:
   - name: step_run
     using:
       foreign_key_constraint_on: step_run_id
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - org_id
+        - step_run_id
+        - channel
+        - recipient
+        - subject
+        - body
+        - status
+        - delivery_error
+        - delivered_at
+        - created_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+      limit: 200
+  - role: owner
+    permission:
+      columns:
+        - id
+        - org_id
+        - step_run_id
+        - channel
+        - recipient
+        - subject
+        - body
+        - status
+        - delivery_error
+        - delivered_at
+        - created_at
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+      limit: 200

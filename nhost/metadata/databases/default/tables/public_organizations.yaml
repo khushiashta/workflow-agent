@@ -33,3 +33,77 @@ array_relationships:
         table:
           name: workflows
           schema: public
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - name
+        - slug
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_period_started_at
+        - created_at
+        - updated_at
+      filter:
+        members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - id
+        - name
+        - slug
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_period_started_at
+        - created_at
+        - updated_at
+      filter:
+        members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - name
+        - slug
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_period_started_at
+        - created_at
+        - updated_at
+      filter:
+        members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: viewer
+update_permissions:
+  - role: owner
+    permission:
+      columns:
+        - name
+      filter:
+        members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner
+      check:
+        members:
+          _and:
+            - user_id:
+                _eq: X-Hasura-User-Id
+            - role:
+                _eq: owner

@@ -5,3 +5,171 @@ object_relationships:
   - name: workflow
     using:
       foreign_key_constraint_on: workflow_id
+insert_permissions:
+  - role: editor
+    permission:
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - workflow_id
+        - trigger_type
+        - is_enabled
+        - config
+  - role: owner
+    permission:
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+      set:
+        created_by: x-hasura-user-id
+      columns:
+        - workflow_id
+        - trigger_type
+        - is_enabled
+        - config
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - trigger_type
+        - is_enabled
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - trigger_type
+        - is_enabled
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+  - role: viewer
+    permission:
+      columns:
+        - id
+        - workflow_id
+        - trigger_type
+        - is_enabled
+        - config
+        - created_by
+        - created_at
+        - updated_at
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: viewer
+update_permissions:
+  - role: editor
+    permission:
+      columns:
+        - is_enabled
+        - config
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - is_enabled
+        - config
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+      check:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner
+delete_permissions:
+  - role: editor
+    permission:
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: editor
+  - role: owner
+    permission:
+      filter:
+        workflow:
+          organization:
+            members:
+              _and:
+                - user_id:
+                    _eq: X-Hasura-User-Id
+                - role:
+                    _eq: owner

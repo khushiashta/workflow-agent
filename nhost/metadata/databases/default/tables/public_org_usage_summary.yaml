@@ -11,3 +11,61 @@ object_relationships:
         remote_table:
           name: organizations
           schema: public
+select_permissions:
+  - role: editor
+    permission:
+      columns:
+        - org_id
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_calls_remaining
+        - quota_period_started_at
+        - runs_this_period
+        - failed_runs_this_period
+        - avg_run_seconds_this_period
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: editor
+  - role: owner
+    permission:
+      columns:
+        - org_id
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_calls_remaining
+        - quota_period_started_at
+        - runs_this_period
+        - failed_runs_this_period
+        - avg_run_seconds_this_period
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: owner
+  - role: viewer
+    permission:
+      columns:
+        - org_id
+        - quota_calls_allowed
+        - quota_calls_used
+        - quota_calls_remaining
+        - quota_period_started_at
+        - runs_this_period
+        - failed_runs_this_period
+        - avg_run_seconds_this_period
+      filter:
+        organization:
+          members:
+            _and:
+              - user_id:
+                  _eq: X-Hasura-User-Id
+              - role:
+                  _eq: viewer
