@@ -9,14 +9,18 @@ insert_permissions:
   - role: editor
     permission:
       check:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - trigger_type:
+              _nin:
+                - webhook
       set:
         created_by: x-hasura-user-id
       columns:
@@ -110,23 +114,31 @@ update_permissions:
         - is_enabled
         - config
       filter:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - trigger_type:
+              _nin:
+                - webhook
       check:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - trigger_type:
+              _nin:
+                - webhook
   - role: owner
     permission:
       columns:
@@ -154,14 +166,18 @@ delete_permissions:
   - role: editor
     permission:
       filter:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - trigger_type:
+              _nin:
+                - webhook
   - role: owner
     permission:
       filter:

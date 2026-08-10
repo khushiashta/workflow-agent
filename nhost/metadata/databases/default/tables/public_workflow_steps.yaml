@@ -17,14 +17,19 @@ insert_permissions:
   - role: editor
     permission:
       check:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - step_type:
+              _nin:
+                - db_write
+                - notify
       set:
         created_by: x-hasura-user-id
       columns:
@@ -128,23 +133,33 @@ update_permissions:
         - name
         - config
       filter:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - step_type:
+              _nin:
+                - db_write
+                - notify
       check:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - step_type:
+              _nin:
+                - db_write
+                - notify
   - role: owner
     permission:
       columns:
@@ -174,14 +189,19 @@ delete_permissions:
   - role: editor
     permission:
       filter:
-        workflow:
-          organization:
-            members:
-              _and:
-                - user_id:
-                    _eq: X-Hasura-User-Id
-                - role:
-                    _eq: editor
+        _and:
+          - workflow:
+              organization:
+                members:
+                  _and:
+                    - user_id:
+                        _eq: X-Hasura-User-Id
+                    - role:
+                        _eq: editor
+          - step_type:
+              _nin:
+                - db_write
+                - notify
   - role: owner
     permission:
       filter:
