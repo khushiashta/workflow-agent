@@ -59,6 +59,20 @@ npm --prefix web run dev
 curl -L https://raw.githubusercontent.com/nhost/cli/main/get.sh | bash
 ```
 
+On macOS without Docker Desktop, Colima works and needs no admin password:
+
+```bash
+brew install colima docker docker-compose
+colima start --cpu 4 --memory 6 --disk 40
+mkdir -p ~/.docker/cli-plugins
+ln -sfn "$(brew --prefix)/opt/docker-compose/bin/docker-compose" ~/.docker/cli-plugins/docker-compose
+```
+
+The symlink is the part that isn't obvious: brew installs Compose as a standalone binary,
+while the nhost CLI shells out to `docker compose` as a plugin subcommand. Without it,
+`nhost up` fails with `unknown flag: --project-directory`, which reads like a CLI version
+problem rather than a missing plugin.
+
 Local service URLs once up: GraphQL at `https://local.graphql.local.nhost.run/v1`, Auth at
 `https://local.auth.local.nhost.run/v1`, Hasura console at `http://localhost:9695`. Local dev
 secrets live in `.secrets` (gitignored, well-known defaults — never reused in the cloud).
