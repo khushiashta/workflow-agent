@@ -1,0 +1,10 @@
+table:
+  name: notifications
+  schema: public
+object_relationships:
+  - name: organization
+    using:
+      foreign_key_constraint_on: org_id
+  - name: step_run
+    using:
+      foreign_key_constraint_on: step_run_id

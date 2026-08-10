@@ -24,11 +24,13 @@ type SeedMember = {
   role: OrgRole;
 };
 
+// nhost's displayName validator rejects punctuation beyond spaces, hyphens, periods and
+// apostrophes, so the org lives in the email rather than the name.
 const MEMBERS: SeedMember[] = [
-  { email: 'owner-a@example.com', displayName: 'Ava Owner (Org A)', orgId: ORG_A_ID, role: 'owner' },
-  { email: 'editor-a@example.com', displayName: 'Eli Editor (Org A)', orgId: ORG_A_ID, role: 'editor' },
-  { email: 'viewer-a@example.com', displayName: 'Vic Viewer (Org A)', orgId: ORG_A_ID, role: 'viewer' },
-  { email: 'owner-b@example.com', displayName: 'Bo Owner (Org B)', orgId: ORG_B_ID, role: 'owner' },
+  { email: 'owner-a@example.com', displayName: 'Ava Owner', orgId: ORG_A_ID, role: 'owner' },
+  { email: 'editor-a@example.com', displayName: 'Eli Editor', orgId: ORG_A_ID, role: 'editor' },
+  { email: 'viewer-a@example.com', displayName: 'Vic Viewer', orgId: ORG_A_ID, role: 'viewer' },
+  { email: 'owner-b@example.com', displayName: 'Bo Owner', orgId: ORG_B_ID, role: 'owner' },
 ];
 
 function requireEnv(name: string): string {
@@ -65,10 +67,14 @@ async function ensureUser(member: SeedMember): Promise<string> {
     }),
   });
 
+  let signUpDetail = '';
   if (signUp.ok) {
     const created = (await signUp.json()) as { session?: { user?: { id: string } } };
     const id = created.session?.user?.id;
     if (id) return id;
+    signUpDetail = 'sign-up returned no session';
+  } else {
+    signUpDetail = await signUp.text();
   }
 
   const signIn = await fetch(`${authUrl}/signin/email-password`, {
@@ -78,10 +84,13 @@ async function ensureUser(member: SeedMember): Promise<string> {
   });
 
   if (!signIn.ok) {
-    const detail = await signIn.text();
+    // Report both legs. Sign-in failing second is usually a symptom of sign-up failing
+    // first, and surfacing only the 401 sends you looking at passwords instead.
     throw new Error(
-      `Could not create or sign in ${member.email} (HTTP ${signIn.status}). ` +
-        `If this account predates the current SEED_USER_PASSWORD, delete it from auth.users. ${detail}`,
+      `Could not create or sign in ${member.email}.\n` +
+        `  sign-up (HTTP ${signUp.status}): ${signUpDetail}\n` +
+        `  sign-in (HTTP ${signIn.status}): ${await signIn.text()}\n` +
+        `  If the account predates the current SEED_USER_PASSWORD, delete it from auth.users.`,
     );
   }
 

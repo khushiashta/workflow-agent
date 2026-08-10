@@ -1,0 +1,13 @@
+table:
+  name: step_runs
+  schema: public
+object_relationships:
+  - name: approver
+    using:
+      foreign_key_constraint_on: approved_by
+  - name: step
+    using:
+      foreign_key_constraint_on: workflow_step_id
+  - name: workflow_run
+    using:
+      foreign_key_constraint_on: workflow_run_id

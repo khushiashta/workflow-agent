@@ -1,0 +1,31 @@
+table:
+  name: workflows
+  schema: public
+object_relationships:
+  - name: organization
+    using:
+      foreign_key_constraint_on: org_id
+array_relationships:
+  - name: runs
+    using:
+      manual_configuration:
+        column_mapping:
+          id: workflow_id
+        insertion_order: null
+        remote_table:
+          name: workflow_runs
+          schema: public
+  - name: steps
+    using:
+      foreign_key_constraint_on:
+        column: workflow_id
+        table:
+          name: workflow_steps
+          schema: public
+  - name: triggers
+    using:
+      foreign_key_constraint_on:
+        column: workflow_id
+        table:
+          name: workflow_triggers
+          schema: public
