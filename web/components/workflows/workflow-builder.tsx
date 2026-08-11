@@ -69,7 +69,7 @@ export function WorkflowBuilder({ workflowId }: { workflowId: string }) {
 
   const role = membership?.role;
   const canEdit = role ? canEditWorkflow(role) : false;
-  const quotaRemaining = usage.data?.org_usage_summary.at(0)?.quota_calls_remaining ?? null;
+  const quotaRemaining = usage.usage?.quota_calls_remaining ?? null;
 
   const isDirty = useMemo(() => {
     if (!workflow) return false;

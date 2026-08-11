@@ -28,6 +28,25 @@ export const ORG_USAGE = `
 `;
 
 /**
+ * Live so the counter moves the moment a run consumes its call. Quota enforcement that
+ * only shows up as an error after the fact reads as arbitrary; watching it tick is the
+ * cheapest evidence it is real.
+ */
+export const WATCH_ORG_USAGE = `
+  subscription WatchOrgUsage($orgId: uuid!) {
+    org_usage_summary(where: { org_id: { _eq: $orgId } }) {
+      org_id
+      quota_calls_allowed
+      quota_calls_used
+      quota_calls_remaining
+      runs_this_period
+      failed_runs_this_period
+      avg_run_seconds_this_period
+    }
+  }
+`;
+
+/**
  * `runs(limit: 1)` is a per-parent limit, so Hasura compiles it to a lateral join rather
  * than one query per workflow — the list stays a single round trip.
  */

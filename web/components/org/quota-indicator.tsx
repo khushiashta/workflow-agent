@@ -4,25 +4,25 @@ import { useActiveMembership } from '@/app/providers';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useQuery } from '@/hooks/use-query';
-import { ORG_USAGE } from '@/lib/graphql/operations';
+import { useSubscription } from '@/hooks/use-subscription';
+import { WATCH_ORG_USAGE } from '@/lib/graphql/operations';
 import type { UsageSummary } from '@/lib/types/database';
 
 export function useOrgUsage() {
   const membership = useActiveMembership();
-  return useQuery<{ org_usage_summary: UsageSummary[] }>(
-    membership ? ORG_USAGE : null,
+  const { data, error } = useSubscription<{ org_usage_summary: UsageSummary[] }>(
+    membership ? WATCH_ORG_USAGE : null,
     { orgId: membership?.org_id },
     membership?.role,
   );
+
+  return { usage: data?.org_usage_summary.at(0) ?? null, error };
 }
 
 export function QuotaIndicator() {
-  const { data, isLoading } = useOrgUsage();
-  const usage = data?.org_usage_summary.at(0);
+  const { usage } = useOrgUsage();
 
-  if (isLoading && !usage) return <Skeleton className="h-9 w-40" />;
-  if (!usage) return null;
+  if (!usage) return <Skeleton className="h-9 w-40" />;
 
   const percentUsed = Math.min(
     100,
