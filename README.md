@@ -87,6 +87,57 @@ Creates two organizations and four users — an owner, editor, and viewer in Org
 Org B. Cross-org isolation is unprovable without at least two tenants, so this is a prerequisite
 for the acceptance test, not a convenience. Credentials print to stdout.
 
+## Verification
+
+The backend contract is provable from the command line. Each suite creates and removes its
+own fixtures, so they are safe to re-run and safe to point at the deployed backend.
+
+```bash
+npm run verify:all
+```
+
+| Suite | Covers |
+|---|---|
+| `verify:isolation` | Every read an Org B user could attempt against Org A's real ids, under each role, plus positive controls from inside Org A |
+| `verify:gating` | Layer 2 — privileged step types and webhook triggers are owner-only, including the retype attempt |
+| `verify:engine` | Execution, retry classification, the SSRF guard, quota |
+| `verify:approval` | Pause, resume, cross-org refusal, the double-approval race |
+| `verify:webhook` | Token minting, unauthenticated entry, rotation, quota on the anonymous path |
+
+Two conventions in these suites are deliberate. **Positive controls are included** — a suite
+where every probe returns nothing passes the negative cases for the wrong reason and looks
+identical to one where the rules work. And **a permission error counts as a failure** even
+though it denies access, because an error confirms the row exists; `null` and `[]` are the
+answers that reveal nothing.
+
+## Starting a run from outside
+
+`triggerWorkflowRun` is the in-app path. For external systems, an owner mints a token once:
+
+```bash
+mutation { createWebhookTrigger(workflow_id: "...") { workflow_trigger_id token } }
+```
+
+The plaintext is returned exactly once and only a SHA-256 hash is stored, so reading the
+`workflow_triggers` row is not the same as holding the credential. Calling it again rotates
+the token and the previous one stops working immediately. Then, with no session at all:
+
+```bash
+curl -s "$NHOST_GRAPHQL_URL" -H 'content-type: application/json' -d '{
+  "query": "mutation ($id: uuid!, $token: String!, $payload: jsonb) { startWorkflowRunViaWebhook(workflow_id: $id, token: $token, payload: $payload) { workflow_run_id status } }",
+  "variables": {
+    "id": "<workflow id>",
+    "token": "<token from createWebhookTrigger>",
+    "payload": { "text": "the checkout page is completely broken and we are losing orders" }
+  }
+}'
+```
+
+The payload lands in `workflow_runs.context.trigger.payload`, reachable from step configs as
+`{{trigger.payload.text}}` — which is how one workflow behaves differently per caller without
+being edited. Quota applies exactly as it does to a manual run; an unauthenticated endpoint
+exempt from quota would be a free amplifier.
+
 ## Environment
 
 Backend (`.env` locally, project environment variables in nhost Cloud):
@@ -115,6 +166,24 @@ The Next.js app deploys to Vercel with **Root Directory** set to `web`. The back
 nhost Cloud from the connected GitHub repo — a push applies `nhost/migrations` and
 `nhost/metadata` and redeploys `functions/`. Backend secrets are set in the nhost dashboard, not
 in the repo.
+
+One project secret is required for the real LLM path: `LLM_API_KEY`. `LLM_BASE_URL` and
+`LLM_MODEL` come from `nhost/nhost.toml` and need no dashboard entry. With the key absent the
+`llm_call` step falls back to the stub and marks its output `stubbed: true`.
+
+### Verifying the deployed backend
+
+Passing locally is not evidence about what a reviewer will open — metadata that applies
+locally can still fail in the cloud. Point the same suites at the deployment:
+
+```bash
+cp .env.cloud.example .env.cloud   # fill in NHOST_ADMIN_SECRET and SEED_USER_PASSWORD
+ENV_FILE=.env.cloud npm run seed
+ENV_FILE=.env.cloud npm run verify:all
+```
+
+The suites create their own organizations and workflows and delete them afterwards, so this is
+safe against a live project. `seed` is idempotent.
 
 ## Notable decisions
 

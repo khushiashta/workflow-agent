@@ -6,15 +6,16 @@
     "node": ">=22"
   },
   "scripts": {
-    "seed": "node --env-file-if-exists=.env scripts/seed.ts",
+    "seed": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/seed.ts",
+    "verify:isolation": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-isolation.ts",
+    "verify:gating": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-gating.ts",
+    "verify:engine": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-engine.ts",
+    "verify:approval": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-approval.ts",
+    "verify:webhook": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-webhook.ts",
+    "verify:all": "npm run verify:isolation && npm run verify:gating && npm run verify:engine && npm run verify:approval && npm run verify:webhook",
     "typecheck": "tsc --noEmit",
     "nhost:up": "nhost up",
-    "nhost:down": "nhost down",
-    "verify:isolation": "node --env-file-if-exists=.env scripts/verify-isolation.ts",
-    "verify:gating": "node --env-file-if-exists=.env scripts/verify-step-gating.ts",
-    "verify:engine": "node --env-file-if-exists=.env scripts/verify-engine.ts",
-    "verify:approval": "node --env-file-if-exists=.env scripts/verify-approval.ts",
-    "verify:webhook": "node --env-file-if-exists=.env scripts/verify-webhook.ts"
+    "nhost:down": "nhost down"
   },
   "dependencies": {
     "@nhost/nhost-js": "^4.8.0",

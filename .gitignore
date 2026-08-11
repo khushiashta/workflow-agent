@@ -20,3 +20,5 @@ scripts/demo-ids.md
 .claude/
 CLAUDE.md
 PLAN.md
+
+.env.cloud
