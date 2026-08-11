@@ -84,6 +84,58 @@ export async function getToken(email: string): Promise<string> {
   return token;
 }
 
+const REQUIRED_ROLES = ['owner', 'editor', 'viewer'];
+
+function decodeJwtClaims(token: string): Record<string, unknown> {
+  const payload = token.split('.')[1];
+  if (!payload) throw new Error('Access token is not a JWT');
+  const json = Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
+  const claims = JSON.parse(json) as Record<string, unknown>;
+  return (claims['https://hasura.io/jwt/claims'] as Record<string, unknown>) ?? {};
+}
+
+/**
+ * The whole permission model rests on a JWT that carries owner, editor and viewer as
+ * allowed roles. When it does not, every rule written for those roles matches zero rows
+ * and the app looks comprehensively broken for a reason that has nothing to do with
+ * permissions. Failing here, by name, is worth more than any amount of downstream
+ * debugging.
+ */
+export function assertRolesGranted(token: string): void {
+  const claims = decodeJwtClaims(token);
+  const allowed = (claims['x-hasura-allowed-roles'] as string[] | undefined) ?? [];
+  const missing = REQUIRED_ROLES.filter((role) => !allowed.includes(role));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `This backend does not grant ${missing.join(', ')} as allowed roles ` +
+        `(token carries: ${allowed.join(', ') || 'none'}).\n` +
+        '  nhost/nhost.toml sets auth.user.roles.allowed, so the config has not reached ' +
+        'this project yet.\n' +
+        '  Locally: restart with `nhost up`.\n' +
+        '  In the cloud: connect the GitHub repo in the nhost dashboard so a push applies ' +
+        'the config, or run `nhost config apply`.',
+    );
+  }
+}
+
+/**
+ * Confirms the schema is actually deployed before a suite reports a wall of failures that
+ * all mean "no tables here".
+ */
+export async function assertSchemaDeployed(): Promise<void> {
+  try {
+    await adminRequest('query SchemaProbe { organizations(limit: 1) { id } }');
+  } catch (cause) {
+    throw new Error(
+      'The workflow schema is not present on this backend ' +
+        `(${cause instanceof Error ? cause.message : String(cause)}).\n` +
+        '  nhost applies nhost/migrations and nhost/metadata from the connected GitHub ' +
+        'repo, so connect it in the dashboard and push.',
+    );
+  }
+}
+
 export async function adminRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},

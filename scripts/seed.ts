@@ -6,6 +6,8 @@
  * sign-in, and every row is upserted on a stable id.
  */
 
+import { assertRolesGranted, assertSchemaDeployed } from './_lib/api.ts';
+
 const authUrl = requireEnv('NHOST_AUTH_URL');
 const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
 const adminSecret = requireEnv('NHOST_ADMIN_SECRET');
@@ -69,10 +71,14 @@ async function ensureUser(member: SeedMember): Promise<string> {
   const signUp = await fetch(`${authUrl}/signup/email-password`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    // No allowedRoles here on purpose. The project's auth.user.roles.allowed already
+    // grants them to every new user, and naming them in the request only adds a way for
+    // sign-up to fail outright ("role-not-allowed") when the config has not been deployed
+    // yet — which is a backend problem the preflight below reports far more clearly.
     body: JSON.stringify({
       email: member.email,
       password,
-      options: { displayName: member.displayName, allowedRoles: ['user', 'me', 'owner', 'editor', 'viewer'] },
+      options: { displayName: member.displayName },
     }),
   });
 
@@ -352,11 +358,30 @@ async function upsertFixtureRun(ownerId: string): Promise<void> {
   );
 }
 
+async function accessTokenFor(email: string): Promise<string> {
+  const response = await fetch(`${authUrl}/signin/email-password`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = (await response.json()) as { session?: { accessToken?: string } };
+  const token = body.session?.accessToken;
+  if (!token) throw new Error(`Could not obtain an access token for ${email}`);
+  return token;
+}
+
 async function main(): Promise<void> {
+  // Both preflights fail with the fix rather than the symptom. Without them, a backend
+  // that is merely undeployed produces either a wall of "field not found" errors or a
+  // permission model that silently matches nothing.
+  await assertSchemaDeployed();
+
   const userIds = new Map<string, string>();
   for (const member of MEMBERS) {
     userIds.set(member.email, await ensureUser(member));
   }
+
+  assertRolesGranted(await accessTokenFor('owner-a@example.com'));
 
   await upsertOrganizations();
   await upsertMemberships(userIds);
