@@ -58,6 +58,17 @@ select_permissions:
                   _eq: X-Hasura-User-Id
               - role:
                   _eq: owner
+  - role: user
+    permission:
+      columns:
+        - id
+        - org_id
+        - user_id
+        - role
+        - created_at
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
   - role: viewer
     permission:
       columns:

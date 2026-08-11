@@ -7,7 +7,14 @@
  *   npm run verify:engine
  */
 
-import { adminRequest, createReporter, getToken, roleRequest } from './_lib/api.ts';
+import {
+  PROBE_PREFIX,
+  adminRequest,
+  createReporter,
+  getToken,
+  roleRequest,
+  sweepProbeFixtures,
+} from './_lib/api.ts';
 
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -115,12 +122,14 @@ const httpStep = (config: Record<string, unknown>): StepInput => ({
 
 const { check, report } = createReporter(56);
 
+await sweepProbeFixtures();
+
 const ownerA = await getToken('owner-a@example.com');
 const viewerA = await getToken('viewer-a@example.com');
 const ownerB = await getToken('owner-b@example.com');
 
 // --- happy path: llm_call then http_request -----------------------------------------
-const happyId = await createWorkflow(ORG_A_ID, 'engine probe: llm then http', [
+const happyId = await createWorkflow(ORG_A_ID, `${PROBE_PREFIX} llm then http`, [
   {
     step_order: 1,
     step_type: 'llm_call',
@@ -190,7 +199,7 @@ check('Org B gets not-found, never forbidden', asOrgB.errorCode === 'not-found',
 
 // --- retry classification -----------------------------------------------------------
 // A connection timeout is transient by definition, so it earns the second attempt.
-const transientId = await createWorkflow(ORG_A_ID, 'engine probe: transient failure', [
+const transientId = await createWorkflow(ORG_A_ID, `${PROBE_PREFIX} transient failure`, [
   httpStep({ method: 'GET', url: 'https://example.com:81/', timeout_ms: 1500 }),
 ]);
 const transient = await trigger(ownerA, 'owner', transientId);
@@ -203,7 +212,7 @@ check(
 );
 
 // A 404 is the request being wrong. Retrying reproduces it and bills for it again.
-const permanentId = await createWorkflow(ORG_A_ID, 'engine probe: permanent failure', [
+const permanentId = await createWorkflow(ORG_A_ID, `${PROBE_PREFIX} permanent failure`, [
   httpStep({ method: 'GET', url: 'https://api.github.com/nope-does-not-exist', timeout_ms: 10000 }),
 ]);
 const permanent = await trigger(ownerA, 'owner', permanentId);
@@ -216,7 +225,7 @@ check(
 );
 
 // --- SSRF guard ---------------------------------------------------------------------
-const ssrfId = await createWorkflow(ORG_A_ID, 'engine probe: ssrf', [
+const ssrfId = await createWorkflow(ORG_A_ID, `${PROBE_PREFIX} ssrf`, [
   httpStep({ method: 'GET', url: 'http://169.254.169.254/latest/meta-data/', timeout_ms: 5000 }),
 ]);
 const ssrf = await trigger(ownerA, 'owner', ssrfId);
@@ -240,8 +249,8 @@ const quotaOrg = await adminRequest<{ insert_organizations_one: { id: string } }
    }`,
   {
     object: {
-      name: 'Quota probe org',
-      slug: `quota-probe-${Date.now()}`,
+      name: 'Probe quota org',
+      slug: `probe-quota-${Date.now()}`,
       quota_calls_allowed: 1,
     },
   },
@@ -263,10 +272,10 @@ await adminRequest(
   { object: { org_id: quotaOrgId, user_id: ownerAId, role: 'owner' } },
 );
 
-const quotaWorkflowId = await createWorkflow(quotaOrgId, 'engine probe: quota', [
+const quotaWorkflowId = await createWorkflow(quotaOrgId, `${PROBE_PREFIX} quota`, [
   httpStep({ method: 'GET', url: 'https://api.github.com/zen', timeout_ms: 10000 }),
 ]);
-const failingWorkflowId = await createWorkflow(quotaOrgId, 'engine probe: quota failure', [
+const failingWorkflowId = await createWorkflow(quotaOrgId, `${PROBE_PREFIX} quota failure`, [
   httpStep({ method: 'GET', url: 'https://api.github.com/nope-does-not-exist', timeout_ms: 10000 }),
 ]);
 

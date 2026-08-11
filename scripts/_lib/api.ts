@@ -138,6 +138,26 @@ export async function roleRequest(
   return { data: body.data };
 }
 
+/**
+ * Every fixture a suite creates carries this prefix so it can be swept.
+ *
+ * Cleanup at the end of a suite only runs when the suite finishes: the first time one
+ * died partway through, its workflows stayed in the org and showed up in the app. Sweeping
+ * on entry means a crashed run cannot leave anything behind for the next one — or for a
+ * recorded walkthrough.
+ */
+export const PROBE_PREFIX = '[probe]';
+
+export async function sweepProbeFixtures(): Promise<void> {
+  await adminRequest(
+    `mutation SweepProbeFixtures($namePattern: String!, $slugPattern: String!) {
+       delete_workflows(where: { name: { _like: $namePattern } }) { affected_rows }
+       delete_organizations(where: { slug: { _like: $slugPattern } }) { affected_rows }
+     }`,
+    { namePattern: `${PROBE_PREFIX}%`, slugPattern: 'probe-%' },
+  );
+}
+
 export type Result = { ok: boolean; line: string };
 
 export function createReporter(labelWidth = 56) {

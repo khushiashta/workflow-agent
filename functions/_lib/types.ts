@@ -9,7 +9,7 @@ export const STEP_TYPES = [
 
 export type StepType = (typeof STEP_TYPES)[number];
 
-export const PRIVILEGED_STEP_TYPES = ['db_write', 'notify'] satisfies readonly StepType[];
+export const PRIVILEGED_STEP_TYPES: readonly StepType[] = ['db_write', 'notify'];
 
 export type OrgRole = 'owner' | 'editor' | 'viewer';
 export type TriggerType = 'manual' | 'webhook' | 'scheduled' | 'database_event';

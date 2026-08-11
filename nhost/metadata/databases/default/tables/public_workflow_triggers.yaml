@@ -24,6 +24,7 @@ insert_permissions:
       set:
         created_by: x-hasura-user-id
       columns:
+        - id
         - workflow_id
         - trigger_type
         - is_enabled
@@ -42,6 +43,7 @@ insert_permissions:
       set:
         created_by: x-hasura-user-id
       columns:
+        - id
         - workflow_id
         - trigger_type
         - is_enabled

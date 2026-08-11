@@ -7,7 +7,14 @@
  *   npm run verify:approval
  */
 
-import { adminRequest, createReporter, getToken, roleRequest } from './_lib/api.ts';
+import {
+  PROBE_PREFIX,
+  adminRequest,
+  createReporter,
+  getToken,
+  roleRequest,
+  sweepProbeFixtures,
+} from './_lib/api.ts';
 
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -162,13 +169,15 @@ async function createGatedWorkflow(name: string, allowedRoles?: string[]): Promi
 
 const { check, report } = createReporter(58);
 
+await sweepProbeFixtures();
+
 const ownerA = await getToken('owner-a@example.com');
 const editorA = await getToken('editor-a@example.com');
 const viewerA = await getToken('viewer-a@example.com');
 const ownerB = await getToken('owner-b@example.com');
 
 // --- the URGENT path pauses at the gate ----------------------------------------------
-const gatedId = await createGatedWorkflow('approval probe: default roles');
+const gatedId = await createGatedWorkflow(`${PROBE_PREFIX} approval default roles`);
 const urgent = await callAction(ownerA, 'owner', TRIGGER, {
   id: gatedId,
   payload: { text: 'the checkout page is completely broken and we are losing orders' },
@@ -232,7 +241,7 @@ check('resume point cleared', resumed.resume_from_step_order === null, `resume_f
 // --- config narrows its own approvers ------------------------------------------------
 // allowed_roles is per-step data, which is exactly why a static permission cannot
 // express this rule.
-const ownerOnlyId = await createGatedWorkflow('approval probe: owner only', ['owner']);
+const ownerOnlyId = await createGatedWorkflow(`${PROBE_PREFIX} approval owner only`, ['owner']);
 await callAction(ownerA, 'owner', TRIGGER, {
   id: ownerOnlyId,
   payload: { text: 'urgent outage, customers are losing orders' },
@@ -260,7 +269,7 @@ const nonGateApproval = await callAction(ownerA, 'owner', APPROVE, {
 check('approving a non-gate step is refused', nonGateApproval.errorCode === 'conflict', `code=${nonGateApproval.errorCode ?? nonGateApproval.status}`);
 
 // --- the NORMAL path skips the gate entirely -----------------------------------------
-const normalId = await createGatedWorkflow('approval probe: normal path');
+const normalId = await createGatedWorkflow(`${PROBE_PREFIX} approval normal path`);
 const normal = await callAction(ownerA, 'owner', TRIGGER, {
   id: normalId,
   payload: { text: 'just checking in on the roadmap for next quarter' },

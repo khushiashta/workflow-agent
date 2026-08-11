@@ -19,7 +19,7 @@ const WORKFLOW_ID = '33333333-3333-3333-3333-333333333333';
 const RUN_ID = '44444444-4444-4444-4444-444444444444';
 const STEP_ID = 'aaaaaaaa-0000-0000-0000-000000000003';
 
-type Role = 'owner' | 'editor' | 'viewer';
+type Role = 'owner' | 'editor' | 'viewer' | 'user';
 type Expectation = 'empty' | 'present';
 
 type Probe = {
@@ -99,6 +99,18 @@ function isEmpty(value: unknown): boolean {
   return Array.isArray(value) && value.length === 0;
 }
 
+/**
+ * A role with no permission on a table does not get that table in its GraphQL schema at
+ * all, so Hasura answers "field not found in type query_root". That reveals nothing about
+ * any particular row — it is true for every id, in every organization — which makes it a
+ * stronger refusal than an empty result, not a weaker one.
+ *
+ * Every other error still counts as a failure: a row-level permission error confirms the
+ * row exists, which is exactly the leak these probes are here to rule out.
+ */
+const isSchemaLevelRefusal = (message: string) =>
+  /field '[^']+' not found in type: '(query_root|mutation_root)'/.test(message);
+
 const { check, report } = createReporter(24);
 
 async function run(scenario: string, token: string, role: Role, expect: Expectation) {
@@ -107,8 +119,12 @@ async function run(scenario: string, token: string, role: Role, expect: Expectat
     const label = `${scenario.padEnd(28)} ${probe.label}`;
 
     if (response.errorCode || response.errorMessage) {
-      // Denies access, but an error confirms the resource exists. Not good enough.
-      check(label, false, `expect ${expect} got error: ${response.errorMessage}`);
+      const message = response.errorMessage ?? '';
+      if (expect === 'empty' && isSchemaLevelRefusal(message)) {
+        check(label, true, 'expect empty   got not-in-schema');
+        continue;
+      }
+      check(label, false, `expect ${expect} got error: ${message}`);
       continue;
     }
 
@@ -135,5 +151,9 @@ await run('OrgA viewer -> OrgA', viewerA, 'viewer', 'present');
 
 // An Org A member claiming a role they do not hold gets that permission set and no rows.
 await run('OrgA viewer as owner', viewerA, 'owner', 'empty');
+
+// The default `user` role exists so the app can discover its own memberships before it
+// can pick a role. It must not become a way around the org scoping.
+await run('OrgB as user -> OrgA', ownerB, 'user', 'empty');
 
 report();

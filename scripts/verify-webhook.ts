@@ -10,7 +10,15 @@
  *   npm run verify:webhook
  */
 
-import { adminRequest, createReporter, getToken, requireEnv, roleRequest } from './_lib/api.ts';
+import {
+  PROBE_PREFIX,
+  adminRequest,
+  createReporter,
+  getToken,
+  requireEnv,
+  roleRequest,
+  sweepProbeFixtures,
+} from './_lib/api.ts';
 
 const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
@@ -123,11 +131,13 @@ async function mintToken(token: string, role: string, workflowId: string) {
 
 const { check, report } = createReporter(56);
 
+await sweepProbeFixtures();
+
 const ownerA = await getToken('owner-a@example.com');
 const editorA = await getToken('editor-a@example.com');
 const ownerB = await getToken('owner-b@example.com');
 
-const workflowId = await createWorkflow(ORG_A_ID, 'webhook probe');
+const workflowId = await createWorkflow(ORG_A_ID, `${PROBE_PREFIX} webhook`);
 
 // --- minting is owner-only -----------------------------------------------------------
 const editorMint = await mintToken(editorA, 'editor', workflowId);
@@ -227,7 +237,7 @@ const quotaOrg = await adminRequest<{ insert_organizations_one: { id: string } }
   `mutation CreateOrg($object: organizations_insert_input!) {
      insert_organizations_one(object: $object) { id }
    }`,
-  { object: { name: 'Webhook quota org', slug: `webhook-quota-${Date.now()}`, quota_calls_allowed: 1 } },
+  { object: { name: 'Probe webhook quota org', slug: `probe-webhook-quota-${Date.now()}`, quota_calls_allowed: 1 } },
 );
 const quotaOrgId = quotaOrg.insert_organizations_one.id;
 createdOrgIds.push(quotaOrgId);
@@ -246,7 +256,7 @@ await adminRequest(
   { object: { org_id: quotaOrgId, user_id: ownerAId, role: 'owner' } },
 );
 
-const quotaWorkflowId = await createWorkflow(quotaOrgId, 'webhook quota probe');
+const quotaWorkflowId = await createWorkflow(quotaOrgId, `${PROBE_PREFIX} webhook quota`);
 const quotaToken = (await mintToken(ownerA, 'owner', quotaWorkflowId)).token ?? '';
 
 const firstWebhookRun = await callAnonymously(quotaWorkflowId, quotaToken, { text: 'roadmap' });
