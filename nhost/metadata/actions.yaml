@@ -7,6 +7,20 @@ actions:
       - role: owner
       - role: editor
     comment: Clears a paused approval gate after re-checking the approver's role in the org
+  - name: createWebhookTrigger
+    definition:
+      kind: synchronous
+      handler: '{{NHOST_FUNCTIONS_URL}}/actions/create-webhook-trigger'
+    permissions:
+      - role: owner
+    comment: Mints a webhook token for a workflow and returns the plaintext exactly once
+  - name: startWorkflowRunViaWebhook
+    definition:
+      kind: synchronous
+      handler: '{{NHOST_FUNCTIONS_URL}}/actions/start-workflow-run-via-webhook'
+    permissions:
+      - role: public
+    comment: Inbound endpoint for external systems; authorized entirely by its per-trigger token
   - name: triggerWorkflowRun
     definition:
       kind: synchronous
@@ -21,4 +35,6 @@ custom_types:
   objects:
     - name: TriggerWorkflowRunOutput
     - name: ApproveStepOutput
+    - name: CreateWebhookTriggerOutput
+    - name: WebhookTriggerOutput
   scalars: []
