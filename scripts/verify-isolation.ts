@@ -12,13 +12,11 @@
  *   npm run verify:isolation
  */
 
-const authUrl = requireEnv('NHOST_AUTH_URL');
-const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
-const password = requireEnv('SEED_USER_PASSWORD');
+import { createReporter, getToken, roleRequest } from './_lib/api.ts';
 
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
-const ORG_B_ID = '22222222-2222-2222-2222-222222222222';
 const WORKFLOW_ID = '33333333-3333-3333-3333-333333333333';
+const RUN_ID = '44444444-4444-4444-4444-444444444444';
 const STEP_ID = 'aaaaaaaa-0000-0000-0000-000000000003';
 
 type Role = 'owner' | 'editor' | 'viewer';
@@ -29,41 +27,6 @@ type Probe = {
   query: string;
   pick: (data: Record<string, unknown>) => unknown;
 };
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}. Copy .env.example to .env and fill it in.`);
-  return value;
-}
-
-async function signIn(email: string): Promise<string> {
-  const response = await fetch(`${authUrl}/signin/email-password`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!response.ok) throw new Error(`Sign-in failed for ${email}: ${await response.text()}`);
-  const body = (await response.json()) as { session?: { accessToken?: string } };
-  const token = body.session?.accessToken;
-  if (!token) throw new Error(`No access token for ${email}`);
-  return token;
-}
-
-async function query(token: string, role: Role, gql: string) {
-  const response = await fetch(graphqlUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${token}`,
-      'x-hasura-role': role,
-    },
-    body: JSON.stringify({ query: gql }),
-  });
-  return (await response.json()) as {
-    data?: Record<string, unknown>;
-    errors?: { message: string }[];
-  };
-}
 
 const PROBES: Probe[] = [
   {
@@ -92,13 +55,13 @@ const PROBES: Probe[] = [
     pick: (d) => d.workflow_triggers,
   },
   {
-    label: 'workflow_runs',
-    query: `{ workflow_runs(where: {workflow_id: {_eq: "${WORKFLOW_ID}"}}) { id status } }`,
-    pick: (d) => d.workflow_runs,
+    label: 'workflow_runs_by_pk',
+    query: `{ workflow_runs_by_pk(id: "${RUN_ID}") { id status } }`,
+    pick: (d) => d.workflow_runs_by_pk,
   },
   {
     label: 'step_runs',
-    query: `{ step_runs(where: {workflow_run: {workflow_id: {_eq: "${WORKFLOW_ID}"}}}) { id status } }`,
+    query: `{ step_runs(where: {workflow_run_id: {_eq: "${RUN_ID}"}}) { id status output } }`,
     pick: (d) => d.step_runs,
   },
   {
@@ -113,7 +76,7 @@ const PROBES: Probe[] = [
   },
   {
     label: 'step_outputs',
-    query: `{ step_outputs(where: {org_id: {_eq: "${ORG_A_ID}"}}) { id label } }`,
+    query: `{ step_outputs(where: {org_id: {_eq: "${ORG_A_ID}"}}) { id label payload } }`,
     pick: (d) => d.step_outputs,
   },
   {
@@ -136,35 +99,27 @@ function isEmpty(value: unknown): boolean {
   return Array.isArray(value) && value.length === 0;
 }
 
-const results: { ok: boolean; line: string }[] = [];
-
-function record(scenario: string, probe: string, expect: Expectation, outcome: string, ok: boolean) {
-  results.push({
-    ok,
-    line: `${ok ? 'PASS' : 'FAIL'}  ${scenario.padEnd(28)} ${probe.padEnd(24)} expect ${expect.padEnd(7)} got ${outcome}`,
-  });
-}
+const { check, report } = createReporter(24);
 
 async function run(scenario: string, token: string, role: Role, expect: Expectation) {
   for (const probe of PROBES) {
-    const response = await query(token, role, probe.query);
+    const response = await roleRequest(token, role, probe.query);
+    const label = `${scenario.padEnd(28)} ${probe.label}`;
 
-    if (response.errors?.length) {
-      // Denies access, but confirms the resource exists. Not good enough.
-      record(scenario, probe.label, expect, `error: ${response.errors[0]?.message}`, false);
+    if (response.errorCode || response.errorMessage) {
+      // Denies access, but an error confirms the resource exists. Not good enough.
+      check(label, false, `expect ${expect} got error: ${response.errorMessage}`);
       continue;
     }
 
-    const value = probe.pick(response.data ?? {});
-    const empty = isEmpty(value);
-    const outcome = empty ? 'empty' : 'data';
-    record(scenario, probe.label, expect, outcome, expect === 'empty' ? empty : !empty);
+    const empty = isEmpty(probe.pick(response.data ?? {}));
+    check(label, expect === 'empty' ? empty : !empty, `expect ${expect.padEnd(7)} got ${empty ? 'empty' : 'data'}`);
   }
 }
 
-const ownerB = await signIn('owner-b@example.com');
-const ownerA = await signIn('owner-a@example.com');
-const viewerA = await signIn('viewer-a@example.com');
+const ownerB = await getToken('owner-b@example.com');
+const ownerA = await getToken('owner-a@example.com');
+const viewerA = await getToken('viewer-a@example.com');
 
 // Negative: Org B holds every real Org A id and still sees nothing, under each role it
 // could put in the header. Claiming a role it does not hold changes which permission set
@@ -173,16 +128,12 @@ await run('OrgB owner -> OrgA', ownerB, 'owner', 'empty');
 await run('OrgB as editor -> OrgA', ownerB, 'editor', 'empty');
 await run('OrgB as viewer -> OrgA', ownerB, 'viewer', 'empty');
 
-// Positive: the same probes from inside Org A must return data, or the negatives above
-// prove nothing.
+// Positive: the same probes from inside Org A must return data, or the negatives prove
+// nothing at all.
 await run('OrgA owner -> OrgA', ownerA, 'owner', 'present');
 await run('OrgA viewer -> OrgA', viewerA, 'viewer', 'present');
 
 // An Org A member claiming a role they do not hold gets that permission set and no rows.
 await run('OrgA viewer as owner', viewerA, 'owner', 'empty');
 
-for (const result of results) console.log(result.line);
-
-const failed = results.filter((result) => !result.ok);
-console.log(`\n${results.length - failed.length}/${results.length} passed`);
-if (failed.length) process.exit(1);
+report();

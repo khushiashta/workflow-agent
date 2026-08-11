@@ -12,7 +12,8 @@
     "nhost:down": "nhost down",
     "verify:isolation": "node --env-file-if-exists=.env scripts/verify-isolation.ts",
     "verify:gating": "node --env-file-if-exists=.env scripts/verify-step-gating.ts",
-    "verify:engine": "node --env-file-if-exists=.env scripts/verify-engine.ts"
+    "verify:engine": "node --env-file-if-exists=.env scripts/verify-engine.ts",
+    "verify:approval": "node --env-file-if-exists=.env scripts/verify-approval.ts"
   },
   "dependencies": {
     "@nhost/nhost-js": "^4.8.0",

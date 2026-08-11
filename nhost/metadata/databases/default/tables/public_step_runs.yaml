@@ -26,6 +26,7 @@ select_permissions:
         - attempt_count
         - approved_by
         - approved_at
+        - approval_comment
         - started_at
         - finished_at
         - created_at
@@ -54,6 +55,7 @@ select_permissions:
         - attempt_count
         - approved_by
         - approved_at
+        - approval_comment
         - started_at
         - finished_at
         - created_at
@@ -82,6 +84,7 @@ select_permissions:
         - attempt_count
         - approved_by
         - approved_at
+        - approval_comment
         - started_at
         - finished_at
         - created_at

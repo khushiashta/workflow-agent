@@ -173,7 +173,11 @@ limit = 10
 interval = '1h'
 
 [auth.rateLimit.bruteForce]
-limit = 10
+# The default of 10 per 5 minutes is keyed by IP, and this app's demo signs four users in
+# from one machine, sometimes across several browsers, alongside the verification suites.
+# 60 attempts in five minutes is still nowhere near a viable attack against the 9-plus
+# character minimum, and it removes a limiter trip that would look like a broken app.
+limit = 60
 interval = '5m'
 
 [auth.rateLimit.signups]

@@ -1,4 +1,12 @@
 actions:
+  - name: approveStep
+    definition:
+      kind: synchronous
+      handler: '{{NHOST_FUNCTIONS_URL}}/actions/approve-step'
+    permissions:
+      - role: owner
+      - role: editor
+    comment: Clears a paused approval gate after re-checking the approver's role in the org
   - name: triggerWorkflowRun
     definition:
       kind: synchronous
@@ -12,4 +20,5 @@ custom_types:
   input_objects: []
   objects:
     - name: TriggerWorkflowRunOutput
+    - name: ApproveStepOutput
   scalars: []

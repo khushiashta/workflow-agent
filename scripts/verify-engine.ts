@@ -7,10 +7,7 @@
  *   npm run verify:engine
  */
 
-const authUrl = requireEnv('NHOST_AUTH_URL');
-const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
-const adminSecret = requireEnv('NHOST_ADMIN_SECRET');
-const password = requireEnv('SEED_USER_PASSWORD');
+import { adminRequest, createReporter, getToken, roleRequest } from './_lib/api.ts';
 
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -35,36 +32,6 @@ type RunSnapshot = {
   step_runs: StepRunSnapshot[];
 };
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}. Copy .env.example to .env and fill it in.`);
-  return value;
-}
-
-async function admin<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const response = await fetch(graphqlUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-hasura-admin-secret': adminSecret },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = (await response.json()) as { data?: T; errors?: { message: string }[] };
-  if (body.errors?.length) throw new Error(body.errors.map((e) => e.message).join('; '));
-  if (!body.data) throw new Error('No data');
-  return body.data;
-}
-
-async function signIn(email: string): Promise<string> {
-  const response = await fetch(`${authUrl}/signin/email-password`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const body = (await response.json()) as { session?: { accessToken?: string } };
-  const token = body.session?.accessToken;
-  if (!token) throw new Error(`Sign-in failed for ${email}`);
-  return token;
-}
-
 type TriggerResult = {
   runId?: string;
   status?: string;
@@ -78,34 +45,22 @@ async function trigger(
   workflowId: string,
   payload: unknown = {},
 ): Promise<TriggerResult> {
-  const response = await fetch(graphqlUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${token}`,
-      'x-hasura-role': role,
-    },
-    body: JSON.stringify({
-      query: `mutation Trigger($id: uuid!, $payload: jsonb) {
-        triggerWorkflowRun(workflow_id: $id, payload: $payload) { workflow_run_id status }
-      }`,
-      variables: { id: workflowId, payload },
-    }),
-  });
+  const response = await roleRequest(
+    token,
+    role,
+    `mutation Trigger($id: uuid!, $payload: jsonb) {
+       triggerWorkflowRun(workflow_id: $id, payload: $payload) { workflow_run_id status }
+     }`,
+    { id: workflowId, payload },
+  );
 
-  const body = (await response.json()) as {
-    data?: { triggerWorkflowRun?: { workflow_run_id: string; status: string } };
-    errors?: { message: string; extensions?: { code?: string } }[];
-  };
-
-  if (body.errors?.length) {
-    const first = body.errors[0];
-    return { errorCode: first?.extensions?.code, errorMessage: first?.message };
+  if (response.errorCode || response.errorMessage) {
+    return { errorCode: response.errorCode, errorMessage: response.errorMessage };
   }
-  return {
-    runId: body.data?.triggerWorkflowRun?.workflow_run_id,
-    status: body.data?.triggerWorkflowRun?.status,
-  };
+  const result = response.data?.triggerWorkflowRun as
+    | { workflow_run_id: string; status: string }
+    | undefined;
+  return { runId: result?.workflow_run_id, status: result?.status };
 }
 
 const RUN_SNAPSHOT = `
@@ -125,12 +80,12 @@ const RUN_SNAPSHOT = `
 `;
 
 const snapshot = async (runId: string): Promise<RunSnapshot> => {
-  const data = await admin<{ workflow_runs_by_pk: RunSnapshot }>(RUN_SNAPSHOT, { runId });
+  const data = await adminRequest<{ workflow_runs_by_pk: RunSnapshot }>(RUN_SNAPSHOT, { runId });
   return data.workflow_runs_by_pk;
 };
 
 const quotaUsed = async (orgId: string): Promise<number> => {
-  const data = await admin<{ organizations_by_pk: { quota_calls_used: number } }>(
+  const data = await adminRequest<{ organizations_by_pk: { quota_calls_used: number } }>(
     `query Quota($orgId: uuid!) { organizations_by_pk(id: $orgId) { quota_calls_used } }`,
     { orgId },
   );
@@ -141,7 +96,7 @@ const createdWorkflowIds: string[] = [];
 const createdOrgIds: string[] = [];
 
 async function createWorkflow(orgId: string, name: string, steps: StepInput[]): Promise<string> {
-  const data = await admin<{ insert_workflows_one: { id: string } }>(
+  const data = await adminRequest<{ insert_workflows_one: { id: string } }>(
     `mutation CreateWorkflow($object: workflows_insert_input!) {
        insert_workflows_one(object: $object) { id }
      }`,
@@ -158,15 +113,11 @@ const httpStep = (config: Record<string, unknown>): StepInput => ({
   config,
 });
 
-const results: { ok: boolean; line: string }[] = [];
+const { check, report } = createReporter(56);
 
-function check(label: string, ok: boolean, detail: string) {
-  results.push({ ok, line: `${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(56)} ${detail}` });
-}
-
-const ownerA = await signIn('owner-a@example.com');
-const viewerA = await signIn('viewer-a@example.com');
-const ownerB = await signIn('owner-b@example.com');
+const ownerA = await getToken('owner-a@example.com');
+const viewerA = await getToken('viewer-a@example.com');
+const ownerB = await getToken('owner-b@example.com');
 
 // --- happy path: llm_call then http_request -----------------------------------------
 const happyId = await createWorkflow(ORG_A_ID, 'engine probe: llm then http', [
@@ -283,7 +234,7 @@ check(
 );
 
 // --- quota ---------------------------------------------------------------------------
-const quotaOrg = await admin<{ insert_organizations_one: { id: string } }>(
+const quotaOrg = await adminRequest<{ insert_organizations_one: { id: string } }>(
   `mutation CreateOrg($object: organizations_insert_input!) {
      insert_organizations_one(object: $object) { id }
    }`,
@@ -298,14 +249,14 @@ const quotaOrg = await admin<{ insert_organizations_one: { id: string } }>(
 const quotaOrgId = quotaOrg.insert_organizations_one.id;
 createdOrgIds.push(quotaOrgId);
 
-const ownerAId = await admin<{ org_members: { user_id: string }[] }>(
+const ownerAId = await adminRequest<{ org_members: { user_id: string }[] }>(
   `query OwnerA($orgId: uuid!) {
      org_members(where: { org_id: { _eq: $orgId }, role: { _eq: "owner" } }) { user_id }
    }`,
   { orgId: ORG_A_ID },
 ).then((data) => data.org_members[0]?.user_id);
 
-await admin(
+await adminRequest(
   `mutation AddMember($object: org_members_insert_input!) {
      insert_org_members_one(object: $object) { id }
    }`,
@@ -329,7 +280,7 @@ check(
 const firstQuotaRun = await trigger(ownerA, 'owner', quotaWorkflowId);
 check('first run within quota succeeds', firstQuotaRun.status === 'succeeded', `status=${firstQuotaRun.status ?? firstQuotaRun.errorMessage}`);
 
-const runsBeforeRefusal = await admin<{ workflow_runs_aggregate: { aggregate: { count: number } } }>(
+const runsBeforeRefusal = await adminRequest<{ workflow_runs_aggregate: { aggregate: { count: number } } }>(
   `query CountRuns($orgId: uuid!) {
      workflow_runs_aggregate(where: { org_id: { _eq: $orgId } }) { aggregate { count } }
    }`,
@@ -339,7 +290,7 @@ const runsBeforeRefusal = await admin<{ workflow_runs_aggregate: { aggregate: { 
 const refused = await trigger(ownerA, 'owner', quotaWorkflowId);
 check('exhausted quota refuses the run', refused.errorCode === 'quota-exhausted', `code=${refused.errorCode ?? refused.status}`);
 
-const runsAfterRefusal = await admin<{ workflow_runs_aggregate: { aggregate: { count: number } } }>(
+const runsAfterRefusal = await adminRequest<{ workflow_runs_aggregate: { aggregate: { count: number } } }>(
   `query CountRuns($orgId: uuid!) {
      workflow_runs_aggregate(where: { org_id: { _eq: $orgId } }) { aggregate { count } }
    }`,
@@ -349,7 +300,7 @@ const runsAfterRefusal = await admin<{ workflow_runs_aggregate: { aggregate: { c
 // Refused before the row exists, so an exhausted org does not accumulate dead runs.
 check('refusal creates no run row', runsAfterRefusal === runsBeforeRefusal, `${runsBeforeRefusal} -> ${runsAfterRefusal}`);
 
-await admin(
+await adminRequest(
   `mutation Cleanup($workflowIds: [uuid!]!, $orgIds: [uuid!]!) {
      delete_workflows(where: { id: { _in: $workflowIds } }) { affected_rows }
      delete_organizations(where: { id: { _in: $orgIds } }) { affected_rows }
@@ -357,8 +308,4 @@ await admin(
   { workflowIds: createdWorkflowIds, orgIds: createdOrgIds },
 );
 
-for (const result of results) console.log(result.line);
-
-const failed = results.filter((result) => !result.ok);
-console.log(`\n${results.length - failed.length}/${results.length} passed`);
-if (failed.length) process.exit(1);
+report();

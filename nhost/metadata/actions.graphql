@@ -1,4 +1,11 @@
 type Mutation {
+  approveStep(
+    step_run_id: uuid!
+    comment: String
+  ): ApproveStepOutput!
+}
+
+type Mutation {
   triggerWorkflowRun(
     workflow_id: uuid!
     payload: jsonb
@@ -6,6 +13,12 @@ type Mutation {
 }
 
 type TriggerWorkflowRunOutput {
+  workflow_run_id: uuid!
+  status: String!
+}
+
+type ApproveStepOutput {
+  step_run_id: uuid!
   workflow_run_id: uuid!
   status: String!
 }

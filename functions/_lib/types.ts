@@ -39,6 +39,7 @@ export type StepRunRow = {
   workflow_step_id: string;
   step_order: number;
   status: StepRunStatus;
+  output: unknown;
   attempt_count: number;
 };
 

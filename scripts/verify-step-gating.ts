@@ -11,36 +11,13 @@
  *   npm run verify:gating
  */
 
-const authUrl = requireEnv('NHOST_AUTH_URL');
-const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
-const adminSecret = requireEnv('NHOST_ADMIN_SECRET');
-const password = requireEnv('SEED_USER_PASSWORD');
+import { adminRequest, createReporter, getToken, roleRequest } from './_lib/api.ts';
 
 const WORKFLOW_ID = '33333333-3333-3333-3333-333333333333';
 const PROBE_STEP_ORDER_BASE = 900;
 
 type Role = 'owner' | 'editor';
 type Outcome = 'allowed' | 'denied';
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing ${name}. Copy .env.example to .env and fill it in.`);
-  return value;
-}
-
-async function signIn(email: string): Promise<string> {
-  const response = await fetch(`${authUrl}/signin/email-password`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!response.ok) throw new Error(`Sign-in failed for ${email}: ${await response.text()}`);
-  const body = (await response.json()) as { session?: { accessToken?: string } };
-  const token = body.session?.accessToken;
-  if (!token) throw new Error(`No access token for ${email}`);
-  return token;
-}
-
 type MutationResult = { outcome: Outcome; detail: string; id?: string };
 
 async function mutate(
@@ -49,28 +26,15 @@ async function mutate(
   query: string,
   variables: Record<string, unknown> = {},
 ): Promise<MutationResult> {
-  const response = await fetch(graphqlUrl, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${token}`,
-      'x-hasura-role': role,
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  const response = await roleRequest(token, role, query, variables);
 
-  const body = (await response.json()) as {
-    data?: Record<string, unknown>;
-    errors?: { message: string }[];
-  };
-
-  if (body.errors?.length) {
-    return { outcome: 'denied', detail: body.errors[0]?.message.slice(0, 60) ?? 'error' };
+  if (response.errorCode || response.errorMessage) {
+    return { outcome: 'denied', detail: (response.errorMessage ?? 'error').slice(0, 60) };
   }
 
   // A failing insert `check` errors, but a row excluded by an update or delete `filter`
   // simply matches nothing. Both are refusals.
-  const root = Object.values(body.data ?? {})[0] as
+  const root = Object.values(response.data ?? {})[0] as
     | { affected_rows?: number; id?: string }
     | null
     | undefined;
@@ -82,14 +46,6 @@ async function mutate(
       : { outcome: 'denied', detail: '0 rows' };
   }
   return { outcome: 'allowed', detail: 'created', id: root.id };
-}
-
-async function adminMutate(query: string, variables: Record<string, unknown> = {}) {
-  await fetch(graphqlUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-hasura-admin-secret': adminSecret },
-    body: JSON.stringify({ query, variables }),
-  });
 }
 
 const INSERT_STEP = `
@@ -118,17 +74,16 @@ const INSERT_TRIGGER = `
   }
 `;
 
-const results: { ok: boolean; line: string }[] = [];
 const createdStepIds: string[] = [];
 const createdTriggerIds: string[] = [];
+const { check, report } = createReporter(52);
 
-function record(label: string, expected: Outcome, actual: MutationResult) {
-  const ok = actual.outcome === expected;
-  results.push({
-    ok,
-    line: `${ok ? 'PASS' : 'FAIL'}  ${label.padEnd(52)} expect ${expected.padEnd(7)} got ${actual.outcome.padEnd(7)} (${actual.detail})`,
-  });
-}
+const record = (label: string, expected: Outcome, actual: MutationResult) =>
+  check(
+    label,
+    actual.outcome === expected,
+    `expect ${expected.padEnd(7)} got ${actual.outcome.padEnd(7)} (${actual.detail})`,
+  );
 
 const step = (order: number, stepType: string, name: string) => ({
   workflow_id: WORKFLOW_ID,
@@ -138,8 +93,8 @@ const step = (order: number, stepType: string, name: string) => ({
   config: {},
 });
 
-const ownerA = await signIn('owner-a@example.com');
-const editorA = await signIn('editor-a@example.com');
+const ownerA = await getToken('owner-a@example.com');
+const editorA = await getToken('editor-a@example.com');
 
 // Positive control first: without it, a suite where every write fails looks like perfect
 // gating.
@@ -218,7 +173,7 @@ const ownerWebhook = await mutate(ownerA, 'owner', INSERT_TRIGGER, {
 record('owner inserts webhook trigger', 'allowed', ownerWebhook);
 if (ownerWebhook.id) createdTriggerIds.push(ownerWebhook.id);
 
-await adminMutate(
+await adminRequest(
   `mutation Cleanup($stepIds: [uuid!]!, $triggerIds: [uuid!]!) {
      delete_workflow_steps(where: {id: {_in: $stepIds}}) { affected_rows }
      delete_workflow_triggers(where: {id: {_in: $triggerIds}}) { affected_rows }
@@ -226,8 +181,4 @@ await adminMutate(
   { stepIds: createdStepIds, triggerIds: createdTriggerIds },
 );
 
-for (const result of results) console.log(result.line);
-
-const failed = results.filter((result) => !result.ok);
-console.log(`\n${results.length - failed.length}/${results.length} passed`);
-if (failed.length) process.exit(1);
+report();

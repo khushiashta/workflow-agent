@@ -84,6 +84,7 @@ const LOAD_STEP_RUNS = `
       step_order
       status
       attempt_count
+      output
     }
   }
 `;
@@ -271,9 +272,19 @@ export async function executeRun(runId: string): Promise<ExecuteRunOutcome> {
 
   const stepRunByStepId = new Map(stepRuns.map((stepRun) => [stepRun.workflow_step_id, stepRun]));
   const stored = run.context as Partial<RunContext> | null;
+
+  // Step outputs are rebuilt from step_runs rather than read back from the run's stored
+  // context. They are the same data, but step_runs are written as each step finishes,
+  // while the context column is only rewritten when the run ends — so a run resuming
+  // after a pause would find an empty context and fail to resolve {{steps.N.output}}.
+  // Rebuilding also means a crash mid-run loses nothing.
   const context: RunContext = {
     trigger: stored?.trigger ?? { type: 'manual', payload: {} },
-    steps: stored?.steps ?? {},
+    steps: Object.fromEntries(
+      stepRuns
+        .filter((stepRun) => stepRun.status === 'succeeded' && stepRun.output !== null)
+        .map((stepRun) => [String(stepRun.step_order), { output: stepRun.output }]),
+    ),
   };
 
   let index = run.resume_from_step_order
