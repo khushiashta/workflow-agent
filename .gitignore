@@ -22,3 +22,5 @@ CLAUDE.md
 PLAN.md
 
 .env.cloud
+
+.cloud-secrets.local
