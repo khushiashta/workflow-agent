@@ -120,19 +120,41 @@ export function assertRolesGranted(token: string): void {
 }
 
 /**
- * Confirms the schema is actually deployed before a suite reports a wall of failures that
- * all mean "no tables here".
+ * Confirms the backend is reachable, authenticated, and carrying the schema, before a
+ * suite reports a wall of failures that all mean one of those three things.
+ *
+ * The three causes need different fixes, so they get different messages. Reporting a
+ * rejected admin secret as "schema not deployed" sends you to the dashboard to debug a
+ * deployment that may be perfectly fine.
  */
 export async function assertSchemaDeployed(): Promise<void> {
+  const envFile = process.env.ENV_FILE ?? '.env';
+
   try {
     await adminRequest('query SchemaProbe { organizations(limit: 1) { id } }');
   } catch (cause) {
-    throw new Error(
-      'The workflow schema is not present on this backend ' +
-        `(${cause instanceof Error ? cause.message : String(cause)}).\n` +
-        '  nhost applies nhost/migrations and nhost/metadata from the connected GitHub ' +
-        'repo, so connect it in the dashboard and push.',
-    );
+    const message = cause instanceof Error ? cause.message : String(cause);
+
+    if (/admin-secret|access-key|unauthoriz/i.test(message)) {
+      throw new Error(
+        `The backend rejected the admin secret (${message}).\n` +
+          `  Endpoint: ${graphqlUrl}\n` +
+          `  NHOST_ADMIN_SECRET in ${envFile} does not match this project. Read it from the\n` +
+          '  nhost dashboard under Settings -> Hasura. The local value from .secrets\n' +
+          '  ("nhost-admin-secret") only works against `nhost up`.',
+      );
+    }
+
+    if (/not found in type|Unknown type|field .* not found/i.test(message)) {
+      throw new Error(
+        `The workflow schema is not present on this backend (${message}).\n` +
+          `  Endpoint: ${graphqlUrl}\n` +
+          '  nhost applies nhost/migrations and nhost/metadata from the connected GitHub\n' +
+          '  repo, so connect it in the dashboard and push.',
+      );
+    }
+
+    throw new Error(`Could not reach ${graphqlUrl}: ${message}`);
   }
 }
 
