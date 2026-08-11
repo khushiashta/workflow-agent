@@ -1,4 +1,17 @@
 [global]
+# Reaches the functions runtime as process.env. NHOST_* and HASURA_* are injected
+# automatically; anything else has to be declared here.
+[[global.environment]]
+name = 'LLM_API_KEY'
+value = '{{ secrets.LLM_API_KEY }}'
+
+[[global.environment]]
+name = 'LLM_BASE_URL'
+value = 'https://api.groq.com/openai/v1'
+
+[[global.environment]]
+name = 'LLM_MODEL'
+value = 'llama-3.3-70b-versatile'
 
 [hasura]
 version = 'v2.49.2-ce'

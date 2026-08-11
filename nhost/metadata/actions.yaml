@@ -1,6 +1,15 @@
-actions: []
+actions:
+  - name: triggerWorkflowRun
+    definition:
+      kind: synchronous
+      handler: '{{NHOST_FUNCTIONS_URL}}/actions/trigger-workflow-run'
+    permissions:
+      - role: owner
+      - role: editor
+    comment: Starts a run for a workflow the caller may trigger in their own organization
 custom_types:
   enums: []
   input_objects: []
-  objects: []
+  objects:
+    - name: TriggerWorkflowRunOutput
   scalars: []
