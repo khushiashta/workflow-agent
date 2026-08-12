@@ -7,8 +7,9 @@ to the caller's organization *and* their role in it.
 
 Built on nhost (PostgreSQL + Hasura + Auth + Functions) with a Next.js frontend.
 
-> **Status:** schema, relationships, and seed are in place. Permissions, the execution engine,
-> and the UI are next.
+**155 automated checks pass against the deployed backend** — both permission layers, the engine,
+retry classification, the SSRF guard, quota, the approval gate including its double-approval
+race, and the unauthenticated webhook path. Run them yourself: see [Verification](#verification).
 
 ## Stack
 
@@ -85,7 +86,20 @@ npm run seed
 
 Creates two organizations and four users — an owner, editor, and viewer in Org A, and an owner in
 Org B. Cross-org isolation is unprovable without at least two tenants, so this is a prerequisite
-for the acceptance test, not a convenience. Credentials print to stdout.
+for the acceptance test, not a convenience.
+
+| Account | Organization | Role |
+|---|---|---|
+| `owner-a@example.com` | Org A | owner |
+| `editor-a@example.com` | Org A | editor |
+| `viewer-a@example.com` | Org A | viewer |
+| `owner-b@example.com` | Org B | owner |
+
+All four share `SEED_USER_PASSWORD`. The script is idempotent, and it preflights the backend
+before writing anything: it fails with the fix, not the symptom, when the schema is missing, the
+admin secret is wrong, or the project does not grant `owner`/`editor`/`viewer` as JWT roles.
+That last one is worth a check of its own — without those roles every permission matches zero
+rows and the app looks broken for a reason that has nothing to do with permissions.
 
 ## Verification
 
@@ -167,9 +181,37 @@ nhost Cloud from the connected GitHub repo — a push applies `nhost/migrations`
 `nhost/metadata` and redeploys `functions/`. Backend secrets are set in the nhost dashboard, not
 in the repo.
 
-One project secret is required for the real LLM path: `LLM_API_KEY`. `LLM_BASE_URL` and
-`LLM_MODEL` come from `nhost/nhost.toml` and need no dashboard entry. With the key absent the
-`llm_call` step falls back to the stub and marks its output `stubbed: true`.
+### Project secrets, before the first deploy
+
+This is the step that will bite you. `nhost/nhost.toml` resolves `{{ secrets.X }}` **from the
+cloud project's own secrets**, and the `.secrets` file in this repo only feeds `nhost up`. A fresh
+project therefore has none of them, and the deployment fails at *Project Config* on the first
+unresolved reference — skipping migrations, metadata and functions, so the symptoms look like
+three unrelated problems at once.
+
+Generate them and upload:
+
+```bash
+./scripts/generate-cloud-secrets.sh
+while IFS='=' read -r name value; do
+  case "$name" in ''|'#'*) continue;; esac
+  nhost secrets create "$name" "$value" || nhost secrets update "$name" "$value"
+done < .cloud-secrets.local
+```
+
+The script writes values to a gitignored file rather than printing them, and rewrites
+`NHOST_ADMIN_SECRET` in `.env.cloud` to match — the project's admin secret *becomes* whatever
+`HASURA_GRAPHQL_ADMIN_SECRET` holds once the config applies, so the two have to agree.
+
+Five secrets are needed: `HASURA_GRAPHQL_ADMIN_SECRET`, `HASURA_GRAPHQL_JWT_SECRET`,
+`NHOST_WEBHOOK_SECRET`, `GRAFANA_ADMIN_PASSWORD`, and `LLM_API_KEY` (your Groq key — without it
+`llm_call` falls back to the stub and marks its output `stubbed: true`). `LLM_BASE_URL` and
+`LLM_MODEL` come from `nhost.toml` and need no entry.
+
+One thing not to add: `HASURA_GRAPHQL_UNAUTHORIZED_ROLE`. nhost already sets it to `public`, and
+the cloud config schema rejects reserved `HASURA_*` names in `global.environment` — while the
+local CLI validates that more loosely, so it passes `nhost config validate` and then fails the
+deploy.
 
 ### Verifying the deployed backend
 
@@ -208,5 +250,6 @@ actually holds it. Nothing to keep in sync when membership changes.
 
 ## Documentation
 
-- `docs/write-up.md` — schema reasoning, how the two permission layers differ, and how the
-  approval gate pauses and resumes *(added in H10)*
+- [docs/write-up.md](docs/write-up.md) — schema reasoning, how the two permission layers are
+  enforced by *different mechanisms*, and how the approval gate pauses and resumes
+- [docs/demo-script.md](docs/demo-script.md) — the six-point walkthrough, click by click
