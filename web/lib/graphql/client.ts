@@ -19,11 +19,31 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   'quota-exhausted': 'This organization has used its whole allowance for the period.',
   conflict: 'Someone else got there first — this step is no longer awaiting approval.',
   'validation-failed': 'Your role cannot perform this action.',
+  forbidden: 'Your role cannot perform this action.',
+  'not-found': 'That item does not exist, or it belongs to another organization.',
 };
+
+/**
+ * Hasura reports a failed row-level rule as "check constraint of an insert/update
+ * permission has failed", which tells a user nothing about what to do. In this app the
+ * rule that fires in practice is the owner-only gate on privileged step and trigger
+ * types, so say that instead.
+ */
+function translateHasuraMessage(message: string): string | null {
+  if (message.includes('check constraint of an insert/update permission has failed')) {
+    return 'Your role cannot save one of these items. Only an owner can add a database write or notify step, or a webhook trigger.';
+  }
+  if (message.includes('not found in type')) {
+    return 'Your role cannot read or write one of these fields.';
+  }
+  return null;
+}
 
 export function describeError(error: unknown): string {
   if (error instanceof GraphQLRequestError) {
-    return FRIENDLY_MESSAGES[error.code] ?? error.message;
+    return (
+      translateHasuraMessage(error.message) ?? FRIENDLY_MESSAGES[error.code] ?? error.message
+    );
   }
   return error instanceof Error ? error.message : 'Something went wrong';
 }

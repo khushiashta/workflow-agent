@@ -180,7 +180,10 @@ export const SAVE_WORKFLOW_TRIGGERS = `
       objects: $triggers
       on_conflict: {
         constraint: workflow_triggers_pkey
-        update_columns: [trigger_type, is_enabled, config]
+        # trigger_type is deliberately absent: no role may update it. Changing a
+        # trigger's type is how an editor would turn a manual trigger into a webhook,
+        # so the column is insert-only and a change means delete and recreate.
+        update_columns: [is_enabled, config]
       }
     ) {
       affected_rows

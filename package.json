@@ -11,8 +11,9 @@
     "verify:gating": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-gating.ts",
     "verify:engine": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-engine.ts",
     "verify:approval": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-approval.ts",
+    "verify:builder": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-builder.ts",
     "verify:webhook": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-webhook.ts",
-    "verify:all": "npm run verify:isolation && npm run verify:gating && npm run verify:engine && npm run verify:approval && npm run verify:webhook",
+    "verify:all": "npm run verify:isolation && npm run verify:gating && npm run verify:engine && npm run verify:approval && npm run verify:builder && npm run verify:webhook",
     "typecheck": "tsc --noEmit",
     "nhost:up": "nhost up",
     "nhost:down": "nhost down"
