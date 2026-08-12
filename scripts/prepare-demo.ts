@@ -10,7 +10,7 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { adminRequest, requireEnv } from './_lib/api.ts';
 
 const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
@@ -147,34 +147,10 @@ writeFileSync(
   `${withoutDemo}\n# Written by npm run demo:prepare — the webhook script reads these.\nDEMO_WORKFLOW_ID=${DEMO_WORKFLOW_ID}\nDEMO_WEBHOOK_TOKEN=${token}\n`,
 );
 
-// Runnable files rather than lines to copy. Retyping a token is how curly quotes get in,
-// and they are invisible until the shell fails on them.
-const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
-
-const curlFor = (message: string, withToken = token) => {
-  const body = JSON.stringify({
-    query:
-      'mutation($id:uuid!,$token:String!,$payload:jsonb){startWorkflowRunViaWebhook(workflow_id:$id,token:$token,payload:$payload){workflow_run_id status}}',
-    variables: { id: DEMO_WORKFLOW_ID, token: withToken, payload: { text: message } },
-  });
-  return `curl -s ${graphqlUrl} -H 'content-type: application/json' -d '${body}'\n`;
-};
-
-mkdirSync('demo', { recursive: true });
-writeFileSync('demo/webhook-normal.sh', curlFor('just checking in on the roadmap'));
-writeFileSync(
-  'demo/webhook-urgent.sh',
-  curlFor('the checkout page is completely broken and we are losing orders'),
-);
-writeFileSync('demo/webhook-bad-token.sh', curlFor('test', 'wrong-token'));
-
 const prefix = envFile === '.env' ? '' : `ENV_FILE=${envFile} `;
 
 console.log(`\nReady to record. Quota reset, demo workflow rebuilt, webhook token minted.\n`);
 console.log(`  workflow   ${DEMO_WORKFLOW_ID}`);
-console.log(`  token      written to ${envFile} (not printed here)\n`);
-console.log('Ready-to-run commands rewritten in demo/ :\n');
-console.log('  sh demo/webhook-normal.sh       finishes, branch skips the gate');
-console.log('  sh demo/webhook-urgent.sh       pauses at the approval gate');
-console.log('  sh demo/webhook-bad-token.sh    refused\n');
-console.log(`Or: ${prefix}npm run webhook -- "your message"\n`);
+console.log(`  token      printed below — paste it into your curl command\n`);
+console.log(`  DEMO_WEBHOOK_TOKEN=${token}\n`);
+console.log(`Or skip the pasting: ${prefix}npm run webhook -- "your message"\n`);
