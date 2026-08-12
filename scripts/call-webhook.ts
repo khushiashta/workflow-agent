@@ -14,11 +14,18 @@ import { requireEnv } from './_lib/api.ts';
 
 const graphqlUrl = requireEnv('NHOST_GRAPHQL_URL');
 
-const [workflowIdArg, token, ...messageParts] = process.argv.slice(2);
-const message = messageParts.join(' ') || 'just checking in on the roadmap';
+// Either `webhook -- <id> <token> [message]`, or just `webhook -- "<message>"` once
+// `demo:prepare` has written DEMO_WORKFLOW_ID and DEMO_WEBHOOK_TOKEN to the env file.
+const args = process.argv.slice(2);
+const looksLikeId = (value: string | undefined) => Boolean(value && /^[0-9a-f-]{30,}$|\/workflows\//i.test(value));
+
+const [workflowIdArg, token, message] = looksLikeId(args[0])
+  ? [args[0], args[1], args.slice(2).join(' ')]
+  : [process.env.DEMO_WORKFLOW_ID, process.env.DEMO_WEBHOOK_TOKEN, args.join(' ')];
 
 if (!workflowIdArg || !token) {
   console.error('Usage: npm run webhook -- <workflow-id> <token> [message]');
+  console.error('   or: npm run webhook -- "<message>"   (after npm run demo:prepare)');
   process.exit(1);
 }
 
@@ -26,6 +33,8 @@ if (!workflowIdArg || !token) {
 // /workflows/<id>, and pasting the whole URL is the obvious mistake to make.
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const workflowId = workflowIdArg.match(UUID)?.[0];
+
+const text = message || 'just checking in on the roadmap';
 
 if (!workflowId) {
   console.error(`Could not find a workflow id in "${workflowIdArg}".`);
@@ -47,7 +56,7 @@ const response = await fetch(graphqlUrl, {
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify({
     query: MUTATION,
-    variables: { id: workflowId, token, payload: { text: message } },
+    variables: { id: workflowId, token, payload: { text: text } },
   }),
 });
 
@@ -64,7 +73,7 @@ if (body.errors?.length) {
 
 const result = body.data?.startWorkflowRunViaWebhook;
 console.log(`\nStarted a run with no session.\n`);
-console.log(`  message  ${message}`);
+console.log(`  message  ${text}`);
 console.log(`  status   ${result?.status}`);
 console.log(`  run      ${result?.workflow_run_id}\n`);
 console.log(`Watch it at /runs/${result?.workflow_run_id}\n`);
