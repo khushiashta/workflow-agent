@@ -11,9 +11,16 @@
  *   npm run verify:gating
  */
 
-import { adminRequest, createReporter, getToken, roleRequest } from './_lib/api.ts';
+import {
+  PROBE_PREFIX,
+  adminRequest,
+  createReporter,
+  getToken,
+  roleRequest,
+  sweepProbeFixtures,
+} from './_lib/api.ts';
 
-const WORKFLOW_ID = '33333333-3333-3333-3333-333333333333';
+const ORG_A_ID = '11111111-1111-1111-1111-111111111111';
 const PROBE_STEP_ORDER_BASE = 900;
 
 type Role = 'owner' | 'editor';
@@ -77,6 +84,19 @@ const INSERT_TRIGGER = `
 const createdStepIds: string[] = [];
 const createdTriggerIds: string[] = [];
 const { check, report } = createReporter(52);
+
+await sweepProbeFixtures();
+
+// Its own workflow rather than the seeded fixture. Probe steps used to be attached to
+// the fixture, so anything the suite left behind after a mid-run failure collided with
+// the next run on (workflow_id, step_order) — and the sweep could not clean it, because
+// the fixture is not a probe fixture.
+const WORKFLOW_ID = await adminRequest<{ insert_workflows_one: { id: string } }>(
+  `mutation CreateProbeWorkflow($object: workflows_insert_input!) {
+     insert_workflows_one(object: $object) { id }
+   }`,
+  { object: { org_id: ORG_A_ID, name: `${PROBE_PREFIX} gating` } },
+).then((data) => data.insert_workflows_one.id);
 
 const record = (label: string, expected: Outcome, actual: MutationResult) =>
   check(
@@ -174,11 +194,13 @@ record('owner inserts webhook trigger', 'allowed', ownerWebhook);
 if (ownerWebhook.id) createdTriggerIds.push(ownerWebhook.id);
 
 await adminRequest(
-  `mutation Cleanup($stepIds: [uuid!]!, $triggerIds: [uuid!]!) {
-     delete_workflow_steps(where: {id: {_in: $stepIds}}) { affected_rows }
-     delete_workflow_triggers(where: {id: {_in: $triggerIds}}) { affected_rows }
+  `mutation Cleanup($workflowId: uuid!) {
+     delete_workflows(where: { id: { _eq: $workflowId } }) { affected_rows }
    }`,
-  { stepIds: createdStepIds, triggerIds: createdTriggerIds },
+  { workflowId: WORKFLOW_ID },
 );
+
+void createdStepIds;
+void createdTriggerIds;
 
 report();

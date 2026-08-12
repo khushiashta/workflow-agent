@@ -1,13 +1,14 @@
 [global]
 # Reaches the functions runtime as process.env. NHOST_* and HASURA_* are injected
 # automatically; anything else has to be declared here.
-# Lets an unauthenticated request resolve to role `public`, which the inbound webhook
-# Action is exposed to. Safe because no table grants `public` anything — the only thing
-# reachable without a session is that one Action, and its own token is what authorizes it.
-[[global.environment]]
-name = 'HASURA_GRAPHQL_UNAUTHORIZED_ROLE'
-value = 'public'
-
+# HASURA_GRAPHQL_UNAUTHORIZED_ROLE is deliberately absent. nhost already resolves an
+# unauthenticated request to role `public`, and setting it here is rejected by the cloud
+# config schema, which forbids reserved HASURA_* names in global.environment — the local
+# CLI validates that more loosely, so it passed locally and failed on deploy.
+#
+# The inbound webhook Action is exposed to `public`. Safe because no table grants `public`
+# anything: the only thing reachable without a session is that one Action, and its own
+# token is what authorizes it.
 [[global.environment]]
 name = 'LLM_API_KEY'
 value = '{{ secrets.LLM_API_KEY }}'
