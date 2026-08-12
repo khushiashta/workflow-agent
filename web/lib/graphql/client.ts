@@ -7,11 +7,13 @@ import type { OrgRole } from '@/lib/types/database';
  */
 export class GraphQLRequestError extends Error {
   code: string;
+  role: OrgRole | undefined;
 
-  constructor(message: string, code: string) {
+  constructor(message: string, code: string, role?: OrgRole) {
     super(message);
     this.name = 'GraphQLRequestError';
     this.code = code;
+    this.role = role;
   }
 }
 
@@ -25,13 +27,15 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
 
 /**
  * Hasura reports a failed row-level rule as "check constraint of an insert/update
- * permission has failed", which tells a user nothing about what to do. In this app the
- * rule that fires in practice is the owner-only gate on privileged step and trigger
- * types, so say that instead.
+ * permission has failed", which names neither the rule nor the role that failed it. Two
+ * quite different causes produce it here — an owner-only step or trigger type, or a role
+ * that does not match the caller's membership in the target organization — so the message
+ * names the acting role. Without that, diagnosing it means guessing.
  */
-function translateHasuraMessage(message: string): string | null {
+function translateHasuraMessage(message: string, role: OrgRole | undefined): string | null {
   if (message.includes('check constraint of an insert/update permission has failed')) {
-    return 'Your role cannot save one of these items. Only an owner can add a database write or notify step, or a webhook trigger.';
+    const acting = role ? ` (acting as ${role})` : '';
+    return `Your role cannot save this${acting}. Only an owner can add a database write or notify step, or a webhook trigger — and you must hold the role you are acting as in this organization. If you just deployed, reload the page to pick up the current session.`;
   }
   if (message.includes('not found in type')) {
     return 'Your role cannot read or write one of these fields.';
@@ -42,7 +46,9 @@ function translateHasuraMessage(message: string): string | null {
 export function describeError(error: unknown): string {
   if (error instanceof GraphQLRequestError) {
     return (
-      translateHasuraMessage(error.message) ?? FRIENDLY_MESSAGES[error.code] ?? error.message
+      translateHasuraMessage(error.message, error.role) ??
+      FRIENDLY_MESSAGES[error.code] ??
+      error.message
     );
   }
   return error instanceof Error ? error.message : 'Something went wrong';
@@ -68,10 +74,10 @@ export async function request<T>(
   if (errors?.length) {
     const first = errors[0];
     const code = (first?.extensions?.code as string | undefined) ?? 'unknown';
-    throw new GraphQLRequestError(first?.message ?? 'GraphQL error', code);
+    throw new GraphQLRequestError(first?.message ?? 'GraphQL error', code, role);
   }
 
   const data = response.body.data;
-  if (!data) throw new GraphQLRequestError('No data returned', 'empty-response');
+  if (!data) throw new GraphQLRequestError('No data returned', 'empty-response', role);
   return data;
 }
