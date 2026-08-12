@@ -47,25 +47,23 @@ a privileged one either.
 
 **Manually:** back as **owner-a**, click **Run**, keep the default urgent payload, confirm.
 
-**By webhook:** in the Triggers panel click **Create webhook**, copy the token (shown once —
-only its hash is stored), then from a terminal, with no login at all:
+**By webhook:** in the Triggers panel click **Create webhook** and copy the token (shown once —
+only its hash is stored). Then from a terminal, with no login at all:
 
 ```bash
-curl -s "$NHOST_GRAPHQL_URL" -H 'content-type: application/json' -d '{
-  "query": "mutation ($id: uuid!, $token: String!, $payload: jsonb) { startWorkflowRunViaWebhook(workflow_id: $id, token: $token, payload: $payload) { workflow_run_id status } }",
-  "variables": {
-    "id": "<workflow id from the URL>",
-    "token": "<the token you copied>",
-    "payload": { "text": "just checking in on the roadmap" }
-  }
-}'
+ENV_FILE=.env.cloud npm run webhook -- <paste the workflow URL> <the token> "just checking in on the roadmap"
 ```
 
-Use the *non*-urgent text here — it takes the else branch and finishes without pausing, which
-demonstrates the branch actually branching. Open that run: steps 3 and 4 are marked **not
-taken**, and step 2 shows `evaluated "NORMAL" → false`.
+Paste the browser URL straight in; the script pulls the id out of it. It sends no
+Authorization header — the token is the entire authorization.
 
-Worth showing a wrong token too — it returns `Invalid webhook token`.
+Use the *non*-urgent message here. It takes the else branch and finishes without pausing,
+which demonstrates the branch actually branching, while the manual run stays paused for the
+approval demo. Open that run: steps 3 and 4 are marked **not taken**, and step 2 shows
+`evaluated "NORMAL" → false`.
+
+Worth showing a wrong token too — same command with the token altered returns
+`Refused (forbidden): Invalid webhook token`.
 
 ## 4. It pauses, and only the right roles can clear it
 

@@ -7,6 +7,7 @@
   },
   "scripts": {
     "seed": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/seed.ts",
+    "webhook": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/call-webhook.ts",
     "verify:isolation": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-isolation.ts",
     "verify:gating": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-gating.ts",
     "verify:engine": "node --env-file-if-exists=${ENV_FILE:-.env} scripts/verify-engine.ts",
