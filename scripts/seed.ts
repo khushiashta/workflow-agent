@@ -123,7 +123,10 @@ async function upsertOrganizations(): Promise<void> {
           objects: $objects
           on_conflict: {
             constraint: organizations_pkey
-            update_columns: [name, slug, quota_calls_allowed]
+            # quota_calls_used is reset too: verification runs consume the allowance, so
+            # without this a re-seed leaves the org near its limit and the next suite
+            # fails on quota rather than on the thing it is testing.
+            update_columns: [name, slug, quota_calls_allowed, quota_calls_used]
           }
         ) {
           affected_rows
@@ -132,8 +135,8 @@ async function upsertOrganizations(): Promise<void> {
     `,
     {
       objects: [
-        { id: ORG_A_ID, name: 'Org A', slug: 'org-a', quota_calls_allowed: 50 },
-        { id: ORG_B_ID, name: 'Org B', slug: 'org-b', quota_calls_allowed: 50 },
+        { id: ORG_A_ID, name: 'Org A', slug: 'org-a', quota_calls_allowed: 50, quota_calls_used: 0 },
+        { id: ORG_B_ID, name: 'Org B', slug: 'org-b', quota_calls_allowed: 50, quota_calls_used: 0 },
       ],
     },
   );

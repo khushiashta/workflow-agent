@@ -1,18 +1,26 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Providers } from './providers';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// Named --font-sans / --font-mono because that is what globals.css maps Tailwind's
+// font utilities to. The scaffold named them --font-geist-*, leaving --font-sans
+// defined as var(--font-sans) — self-referential, so it resolved to nothing and every
+// surface fell back to the browser's default serif.
+const sans = Inter({
+  variable: '--font-sans',
   subsets: ['latin'],
+  display: 'swap',
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+// The UI is dense with prompts, JSON output, ids and tokens, so the monospace face
+// carries real weight here rather than being decoration.
+const mono = JetBrains_Mono({
+  variable: '--font-mono',
   subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -24,9 +32,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${sans.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background font-sans text-foreground antialiased">
         <Providers>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster richColors position="top-right" />
