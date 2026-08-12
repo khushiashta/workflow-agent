@@ -30,3 +30,6 @@ web/AGENTS.md
 web/README.md
 docs/demo-script.md
 docs/video-script.md
+
+# Ready-to-run demo commands containing a live webhook token.
+demo/
