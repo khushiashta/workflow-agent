@@ -32,6 +32,7 @@ import type { StepType, Workflow, WorkflowStep } from '@/lib/types/database';
 import { STEP_TYPES } from '@/lib/types/database';
 import { canEditWorkflow, whyStepTypeDisabled } from '@/lib/workflow/permissions';
 import { STEP_TYPE_SPECS } from '@/lib/workflow/step-types';
+import { DeleteWorkflowButton } from './delete-workflow-button';
 import { RunButton } from './run-button';
 import { StepCard } from './step-card';
 import { TriggerPanel } from './trigger-panel';
@@ -232,6 +233,12 @@ export function WorkflowBuilder({ workflowId }: { workflowId: string }) {
             </Button>
           ) : null}
           <RunButton workflowId={workflow.id} role={role} quotaRemaining={quotaRemaining} />
+          <DeleteWorkflowButton
+            workflowId={workflow.id}
+            workflowName={workflow.name}
+            runCount={workflow.runs.length}
+            role={role}
+          />
         </div>
       </div>
 
