@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { request } from '@/lib/graphql/client';
 import { MY_MEMBERSHIPS } from '@/lib/graphql/operations';
-import { nhost } from '@/lib/nhost/client';
+import { nhost, nhostConfigError } from '@/lib/nhost/client';
 import type { OrgMembership } from '@/lib/types/database';
 
 const ACTIVE_ORG_KEY = 'workflow-agent:active-org';
@@ -21,6 +21,20 @@ type SessionState = {
 };
 
 const SessionContext = createContext<SessionState | null>(null);
+
+function ConfigurationNotice({ message }: { message: string }) {
+  return (
+    <main className="flex flex-1 items-center justify-center p-6">
+      <div className="max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-6">
+        <h1 className="text-base font-semibold">This deployment is not configured</h1>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted-foreground">
+          The backend is unreachable until it is set, so nothing on this page would work.
+        </p>
+      </div>
+    </main>
+  );
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -70,6 +84,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
+    if (nhostConfigError) {
+      setIsLoading(false);
+      return;
+    }
+
     let active = true;
 
     const bootstrap = async () => {
@@ -121,7 +140,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     [isLoading, userId, email, displayName, memberships, activeOrgId, chooseOrg, loadMemberships, signOut],
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>
+      {nhostConfigError ? <ConfigurationNotice message={nhostConfigError} /> : children}
+    </SessionContext.Provider>
+  );
 }
 
 export function useSession(): SessionState {
