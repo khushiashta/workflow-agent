@@ -15,8 +15,7 @@ const sans = Inter({
   display: 'swap',
 });
 
-// The UI is dense with prompts, JSON output, ids and tokens, so the monospace face
-// carries real weight here rather than being decoration.
+// The UI is dense with prompts, JSON, ids and tokens, so the mono face does real work.
 const mono = JetBrains_Mono({
   variable: '--font-mono',
   subsets: ['latin'],

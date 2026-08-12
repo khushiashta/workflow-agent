@@ -19,7 +19,7 @@ export function RunTimeline({ runId }: { runId: string }) {
   const membership = useActiveMembership();
   const role = membership?.role;
 
-  // One-shot for the parts that never change, so the page has a heading immediately.
+  // One-shot for the fields that never change, so the heading paints immediately.
   const detail = useQuery<{ workflow_runs_by_pk: WorkflowRun | null }>(
     role ? RUN_DETAIL : null,
     { runId },

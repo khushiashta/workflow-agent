@@ -54,7 +54,7 @@ export const executeLlmCall: StepExecutor = async ({ step, context }) => {
       signal: AbortSignal.timeout(config.timeout_ms ?? 30_000),
     });
   } catch (error) {
-    // Network failures and timeouts are the retryable case by definition.
+    // Network failures and timeouts are retryable by definition.
     throw new TransientError(`LLM request failed: ${(error as Error).message}`);
   }
 

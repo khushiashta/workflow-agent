@@ -15,8 +15,7 @@ export function assertQuotaAvailable(organization: {
   quota_calls_used: number;
   quota_calls_allowed: number;
 }) {
-  // Checked up front so an exhausted org gets a clear refusal instead of a run that
-  // executes and then fails at the end.
+  // Up front, so an exhausted org is refused rather than half-executed.
   if (organization.quota_calls_used >= organization.quota_calls_allowed) throw quotaExhausted();
 }
 

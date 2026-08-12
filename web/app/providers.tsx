@@ -92,8 +92,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     let active = true;
 
     const bootstrap = async () => {
-      // Refresh first: a stored session whose access token has expired would otherwise
-      // make every query fail once before recovering.
+      // Refresh first, or a stored-but-expired token fails every query once.
       await nhost.refreshSession(60).catch(() => null);
       if (active) await applySession(nhost.getUserSession());
     };

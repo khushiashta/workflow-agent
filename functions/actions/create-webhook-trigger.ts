@@ -59,7 +59,6 @@ export default async function handler(req: Request, res: Response) {
       },
     });
 
-    // The only time the plaintext exists outside the caller's hands.
     return res.status(200).json({ workflow_trigger_id: trigger.id, token });
   } catch (error) {
     return sendError(res, error);

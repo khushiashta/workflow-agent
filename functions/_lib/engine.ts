@@ -194,9 +194,8 @@ export async function createRun(input: {
 
   if (steps.length === 0) throw new Error('Workflow has no steps');
 
-  // Every step_run is inserted as `pending` up front, in the same transaction as the
-  // run, so the subscription renders the whole ladder from its first frame instead of
-  // materialising rows one at a time.
+  // All step_runs are inserted `pending` in the same transaction as the run, so the
+  // subscription renders the whole ladder from its first frame.
   const { insert_workflow_runs_one: run } = await adminRequest<{
     insert_workflow_runs_one: { id: string };
   }>(CREATE_RUN, {
